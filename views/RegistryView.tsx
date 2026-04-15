@@ -1,0 +1,401 @@
+
+import React, { useState } from 'react';
+import { MOCK_SUPPLIERS } from '../constants';
+import { CATEGORIES } from '../constants';
+import { Supplier, RiskStatus, User } from '../types';
+import RiskBadge from '../components/RiskBadge';
+import { Search, ChevronRight, MapPin, Mail, Filter, Plus, X, Building2, Globe, Tag, ChevronDown, Zap } from 'lucide-react';
+import { toast } from 'sonner';
+
+interface RegistryViewProps {
+  user: User;
+  updateSectors: (sectors: string[]) => void;
+  suppliers: Supplier[];
+  categoryFilter: string;
+  onCategoryFilterChange: (cat: string) => void;
+  statusFilter: RiskStatus | 'ALL';
+  onStatusFilterChange: (s: RiskStatus | 'ALL') => void;
+  onSelectSupplier: (supplier: Supplier) => void;
+  onAddSupplier: (supplier: Supplier) => void;
+}
+
+const REGIONS = [
+  { city: 'Tokyo', state: 'Tokyo', country: 'Japan', coords: [35.6762, 139.6503] },
+  { city: 'Shanghai', state: 'Shanghai', country: 'China', coords: [31.2304, 121.4737] },
+  { city: 'Berlin', state: 'Berlin', country: 'Germany', coords: [52.5200, 13.4050] },
+  { city: 'San Francisco', state: 'California', country: 'USA', coords: [37.7749, -122.4194] },
+  { city: 'Singapore', state: 'Singapore', country: 'Singapore', coords: [1.3521, 103.8198] },
+  { city: 'Mumbai', state: 'Maharashtra', country: 'India', coords: [19.0760, 72.8777] },
+  { city: 'London', state: 'England', country: 'UK', coords: [51.5074, -0.1278] },
+  { city: 'Seoul', state: 'Seoul', country: 'South Korea', coords: [37.5665, 126.9780] },
+  { city: 'Sydney', state: 'New South Wales', country: 'Australia', coords: [-33.8688, 151.2093] },
+  { city: 'São Paulo', state: 'São Paulo', country: 'Brazil', coords: [-23.5505, -46.6333] },
+  { city: 'Dubai', state: 'Dubai', country: 'UAE', coords: [25.2048, 55.2708] },
+  { city: 'Amsterdam', state: 'North Holland', country: 'Netherlands', coords: [52.3676, 4.9041] },
+  { city: 'Toronto', state: 'Ontario', country: 'Canada', coords: [43.6532, -79.3832] },
+  { city: 'Rotterdam', state: 'South Holland', country: 'Netherlands', coords: [51.9225, 4.47917] },
+  { city: 'Ho Chi Minh City', state: 'Ho Chi Minh', country: 'Vietnam', coords: [10.8231, 106.6297] },
+  { city: 'Hsinchu', state: 'Hsinchu', country: 'Taiwan', coords: [24.8138, 120.9675] },
+  { city: 'Bangalore', state: 'Karnataka', country: 'India', coords: [12.9716, 77.5946] },
+  { city: 'Munich', state: 'Bavaria', country: 'Germany', coords: [48.1351, 11.5820] },
+  { city: 'Chicago', state: 'Illinois', country: 'USA', coords: [41.8781, -87.6298] },
+];
+
+const RegistryView: React.FC<RegistryViewProps> = ({ 
+  user,
+  updateSectors,
+  suppliers,
+  categoryFilter, 
+  onCategoryFilterChange,
+  statusFilter, 
+  onStatusFilterChange, 
+  onSelectSupplier,
+  onAddSupplier
+}) => {
+  const [searchTerm, setSearchTerm] = useState('');
+  const [showFilters, setShowFilters] = useState(false);
+  const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+  const [isAddSectorOpen, setIsAddSectorOpen] = useState(false);
+
+  const sectors = user.sectors || ['Logistics'];
+
+  const filteredSuppliers = suppliers.filter(s => {
+    const matchesSearch = s.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
+                         s.category.toLowerCase().includes(searchTerm.toLowerCase());
+    
+    const matchesCategory = categoryFilter === 'ALL' || s.category === categoryFilter;
+    const matchesStatus = statusFilter === 'ALL' || s.status === statusFilter;
+    return matchesSearch && matchesCategory && matchesStatus;
+  });
+
+  const handleAddSupplier = (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    const formData = new FormData(e.currentTarget);
+    const regionIndex = parseInt(formData.get('region') as string);
+    const region = REGIONS[regionIndex];
+    
+    const newSupplier: Supplier = {
+      id: `s${Date.now()}`,
+      name: formData.get('name') as string,
+      location: `${region.city}, ${region.country}`,
+      coordinates: region.coords as [number, number],
+      status: RiskStatus.STABLE,
+      category: formData.get('category') as string,
+      contactEmail: formData.get('email') as string,
+      lastUpdated: new Date().toISOString()
+    };
+
+    onAddSupplier(newSupplier);
+    setIsAddModalOpen(false);
+  };
+
+  const handleAddSector = (sector: string) => {
+    if (!sectors.includes(sector)) {
+      updateSectors([...sectors, sector]);
+    }
+    setIsAddSectorOpen(false);
+  };
+
+  const handleRemoveSector = (sector: string) => {
+    if (sectors.length > 1) {
+      const newSectors = sectors.filter(s => s !== sector);
+      updateSectors(newSectors);
+      if (categoryFilter === sector) {
+        onCategoryFilterChange('ALL');
+      }
+    }
+  };
+
+  return (
+    <div className="space-y-6 sm:space-y-8 animate-in slide-in-from-bottom-4 duration-500">
+      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6">
+        <div className="flex-shrink-0">
+          <h2 className="text-3xl font-black text-white tracking-tight uppercase">Network Registry</h2>
+          <p className="text-slate-500 font-medium mt-1 text-[10px] uppercase tracking-widest">
+            Monitoring {filteredSuppliers.length} active global partners.
+          </p>
+        </div>
+        
+        <div className="flex flex-wrap lg:flex-nowrap items-center gap-3 w-full lg:w-auto overflow-x-auto lg:overflow-visible pb-2 lg:pb-0 no-scrollbar">
+          <div className="relative min-w-[200px] sm:min-w-[240px] flex-1 lg:flex-none">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" size={16} />
+            <input 
+              type="text"
+              placeholder="Search registry..."
+              className="w-full pl-10 pr-4 h-11 bg-[#0a0f1c] border border-white/10 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none transition-all text-white text-xs font-medium"
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+            />
+          </div>
+          
+          <button 
+            onClick={() => setIsAddModalOpen(true)}
+            className="h-11 px-6 bg-blue-600 text-white border border-blue-500/50 rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-blue-500 transition-all shadow-lg shadow-blue-900/20 flex items-center gap-2 whitespace-nowrap"
+          >
+            <Plus size={18} /> <span>Add Supplier</span>
+          </button>
+
+          {/* Sector Filters Dropdown */}
+          <div className="relative group">
+            <button className="h-11 px-4 bg-[#0a0f1c] border border-white/10 text-slate-300 rounded-xl text-[10px] font-black uppercase tracking-widest flex items-center gap-2 hover:bg-white/5 transition-all whitespace-nowrap">
+              Sector: <span className="text-white">{categoryFilter}</span> <ChevronDown size={14} />
+            </button>
+            <div className="absolute right-0 top-full mt-2 w-56 bg-[#0a0f1c] border border-white/10 rounded-xl shadow-2xl z-50 p-2 hidden group-hover:block animate-in fade-in slide-in-from-top-2 duration-200">
+              <div className="space-y-1">
+                <button
+                  onClick={() => onCategoryFilterChange('ALL')}
+                  className={`w-full text-left px-3 py-2 rounded-lg text-[9px] font-black uppercase tracking-widest transition-all ${
+                    categoryFilter === 'ALL' 
+                      ? 'bg-blue-600 text-white shadow-lg shadow-blue-900/20' 
+                      : 'text-slate-500 hover:text-slate-300 hover:bg-white/5'
+                  }`}
+                >
+                  ALL
+                </button>
+                {sectors.map((s) => (
+                  <div key={s} className="flex items-center gap-1 group/item">
+                    <button
+                      onClick={() => onCategoryFilterChange(s)}
+                      className={`flex-1 text-left px-3 py-2 rounded-lg text-[9px] font-black uppercase tracking-widest transition-all ${
+                        categoryFilter === s 
+                          ? 'bg-blue-600/20 text-blue-400' 
+                          : 'text-slate-500 hover:text-slate-300 hover:bg-white/5'
+                      }`}
+                    >
+                      {s}
+                    </button>
+                    <button 
+                      onClick={(e) => { e.stopPropagation(); handleRemoveSector(s); }}
+                      className="p-1.5 text-slate-600 hover:text-rose-400 transition-colors rounded-lg hover:bg-rose-400/5"
+                      title="Remove Sector"
+                    >
+                      <X size={12} />
+                    </button>
+                  </div>
+                ))}
+                <div className="pt-2 mt-2 border-t border-white/5">
+                  <p className="px-3 py-1 text-[8px] font-black text-slate-600 uppercase tracking-widest mb-1">Add Sector</p>
+                  <div className="grid grid-cols-1 gap-1">
+                    {CATEGORIES.filter(c => !sectors.includes(c)).map(c => (
+                      <button
+                        key={c}
+                        onClick={() => handleAddSector(c)}
+                        className="w-full text-left px-3 py-2 rounded-lg text-[9px] font-bold text-slate-500 hover:bg-white/5 hover:text-white transition-all"
+                      >
+                        + {c}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Status Filter Dropdown */}
+          <div className="relative group">
+            <button className="h-11 px-4 bg-[#0a0f1c] border border-white/10 text-slate-300 rounded-xl text-[10px] font-black uppercase tracking-widest flex items-center gap-2 hover:bg-white/5 transition-all whitespace-nowrap">
+              Status: <span className="text-white">{statusFilter}</span> <ChevronDown size={14} />
+            </button>
+            <div className="absolute right-0 top-full mt-2 w-32 bg-[#0a0f1c] border border-white/10 rounded-xl shadow-2xl z-50 p-1 hidden group-hover:block animate-in fade-in slide-in-from-top-2 duration-200">
+              {(['ALL', RiskStatus.STABLE, RiskStatus.CAUTION, RiskStatus.RISKY] as const).map((f) => (
+                <button
+                  key={f}
+                  onClick={() => onStatusFilterChange(f)}
+                  className={`w-full text-left px-3 py-2 rounded-lg text-[9px] font-black uppercase tracking-widest transition-all ${
+                    statusFilter === f 
+                      ? 'bg-blue-600/10 text-blue-400' 
+                      : 'text-slate-500 hover:bg-white/5 hover:text-slate-300'
+                  }`}
+                >
+                  {f}
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Responsive Table / Card View */}
+      <div className="bg-[#0a0f1c] rounded-[2rem] border border-white/5 shadow-xl overflow-hidden">
+        {/* Desktop Table */}
+        <div className="hidden md:block overflow-x-auto">
+          <table className="w-full text-left">
+            <thead className="bg-white/[0.02] border-b border-white/5">
+              <tr>
+                <th className="px-6 sm:px-8 py-5 text-[9px] font-black text-slate-500 uppercase tracking-widest">Supplier Profile</th>
+                <th className="px-6 sm:px-8 py-5 text-[9px] font-black text-slate-500 uppercase tracking-widest">Asset Class</th>
+                <th className="px-6 sm:px-8 py-5 text-[9px] font-black text-slate-500 uppercase tracking-widest">Geography</th>
+                <th className="px-6 sm:px-8 py-5 text-[9px] font-black text-slate-500 uppercase tracking-widest">Risk Status</th>
+                <th className="px-6 sm:px-8 py-5 text-[9px] font-black text-slate-500 uppercase tracking-widest text-right">Actions</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-white/[0.03]">
+              {filteredSuppliers.map((supplier) => (
+                <tr 
+                  key={supplier.id}
+                  onClick={() => onSelectSupplier(supplier)}
+                  className="hover:bg-white/[0.02] transition-colors cursor-pointer group"
+                >
+                  <td className="px-8 py-6">
+                    <div className="flex items-center gap-4">
+                      <div className="w-10 h-10 bg-blue-600/20 rounded-xl flex items-center justify-center font-black text-blue-400 group-hover:scale-105 transition-transform">
+                        {supplier.name.charAt(0)}
+                      </div>
+                      <div>
+                        <p className="font-extrabold text-white text-sm">{supplier.name}</p>
+                        <p className={`text-[10px] font-medium mt-0.5 transition-all ${user.plan === 'Business' || user.plan === 'Intermediate' ? 'text-slate-500' : 'text-slate-700 blur-[3px] select-none cursor-not-allowed'}`}>
+                          {user.plan === 'Business' || user.plan === 'Intermediate' ? supplier.contactEmail : '••••••••@••••.com'}
+                        </p>
+                      </div>
+                    </div>
+                  </td>
+                  <td className="px-8 py-6">
+                    <span className="text-[10px] font-bold text-slate-400 bg-white/5 px-2 py-1 rounded border border-white/5">
+                      {supplier.category}
+                    </span>
+                  </td>
+                  <td className="px-8 py-6">
+                    <p className="text-xs text-slate-400 flex items-center gap-1.5 font-medium">
+                      <MapPin size={16} className="text-slate-600" /> {supplier.location}
+                    </p>
+                  </td>
+                  <td className="px-8 py-6">
+                    <div className="flex flex-col items-start gap-1">
+                      <RiskBadge status={supplier.status} size="sm" />
+                      <div className="flex items-center gap-1 text-[7px] font-black text-blue-500 uppercase tracking-widest">
+                        <Zap size={8} /> AI-Verified
+                      </div>
+                    </div>
+                  </td>
+                  <td className="px-8 py-6 text-right">
+                    <button className="p-2 hover:bg-white/5 rounded-lg text-slate-500 transition-all">
+                      <ChevronRight size={18} />
+                    </button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+
+        {/* Mobile Card List */}
+        <div className="md:hidden grid grid-cols-1 gap-4 p-4">
+          {filteredSuppliers.map((supplier) => (
+            <div 
+              key={supplier.id} 
+              onClick={() => onSelectSupplier(supplier)}
+              className="p-6 bg-white/5 rounded-3xl border border-white/10 active:bg-white/10 flex flex-col gap-4"
+            >
+              <div className="flex items-center justify-between">
+                <div className="w-12 h-12 bg-blue-600/20 rounded-2xl flex items-center justify-center font-black text-blue-400 flex-shrink-0">
+                  {supplier.name.charAt(0)}
+                </div>
+                <RiskBadge status={supplier.status} size="sm" />
+              </div>
+              
+              <div className="flex-1 min-w-0">
+                <h4 className="font-bold text-white text-base truncate mb-1">{supplier.name}</h4>
+                <div className="flex flex-col gap-1 text-[10px] text-slate-500 uppercase font-black tracking-widest">
+                  <span className="flex items-center gap-1.5"><MapPin size={12} /> {supplier.location}</span>
+                  <span className="flex items-center gap-1.5"><Tag size={12} /> {supplier.category}</span>
+                  {(user.plan === 'Business' || user.plan === 'Intermediate') && (
+                    <span className="flex items-center gap-1.5 text-blue-400/80 lowercase font-medium tracking-normal"><Mail size={12} /> {supplier.contactEmail}</span>
+                  )}
+                </div>
+              </div>
+              
+              <div className="pt-4 border-t border-white/5 flex justify-between items-center">
+                <span className="text-[9px] font-black text-slate-600 uppercase tracking-widest">Node ID: {supplier.id.toUpperCase()}</span>
+                <ChevronRight size={16} className="text-blue-400" />
+              </div>
+            </div>
+          ))}
+        </div>
+
+        {filteredSuppliers.length === 0 && (
+          <div className="p-16 sm:p-24 text-center">
+            <div className="inline-flex p-4 sm:p-6 bg-white/5 rounded-full mb-4 sm:mb-6">
+              <Search size={48} className="text-slate-700" />
+            </div>
+            <p className="text-slate-500 font-bold text-base sm:text-lg px-6">No partners match current intelligence filters.</p>
+            <button 
+              onClick={() => { setSearchTerm(''); onStatusFilterChange('ALL'); }}
+              className="mt-4 text-blue-400 font-bold text-xs sm:text-sm hover:underline underline-offset-4"
+            >
+              Reset Global Filters
+            </button>
+          </div>
+        )}
+      </div>
+
+      {/* Add Supplier Modal Overlay */}
+      {isAddModalOpen && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-md">
+          <div className="w-full max-w-lg bg-[#0a0f1c] rounded-3xl border border-white/10 shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200">
+            <div className="p-8 border-b border-white/5 flex items-center justify-between">
+              <h3 className="text-xl font-bold text-white">Register New Supplier</h3>
+              <button onClick={() => setIsAddModalOpen(false)} className="p-2 hover:bg-white/5 rounded-xl text-slate-500 transition-colors">
+                <X size={20} />
+              </button>
+            </div>
+            <form onSubmit={handleAddSupplier} className="p-8 space-y-6">
+              <div className="space-y-2">
+                <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest flex items-center gap-2">
+                  <Building2 size={16} /> Supplier Name
+                </label>
+                <input required name="name" type="text" placeholder="e.g. Quantum Components Ltd" className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white outline-none focus:ring-2 focus:ring-blue-600 transition-all" />
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest flex items-center gap-2">
+                    <Globe size={16} /> Region
+                  </label>
+                  <div className="relative">
+                    <select required name="region" defaultValue="" className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white outline-none focus:ring-2 focus:ring-blue-600 transition-all appearance-none cursor-pointer text-xs">
+                      <option value="" disabled className="bg-[#0a0f1c]">Select Region</option>
+                      {REGIONS.map((r, i) => (
+                        <option key={i} value={i} className="bg-[#0a0f1c]">
+                          {r.city}, {r.state}, {r.country}
+                        </option>
+                      ))}
+                    </select>
+                    <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-slate-500">
+                      <ChevronRight size={14} className="rotate-90" />
+                    </div>
+                  </div>
+                </div>
+                <div className="space-y-2">
+                  <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest flex items-center gap-2">
+                    <Tag size={16} /> Asset Class
+                  </label>
+                  <div className="relative">
+                    <select required name="category" defaultValue="" className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white outline-none focus:ring-2 focus:ring-blue-600 transition-all appearance-none cursor-pointer text-xs">
+                      <option value="" disabled className="bg-[#0a0f1c]">Select Class</option>
+                      {CATEGORIES.map(c => (
+                        <option key={c} value={c} className="bg-[#0a0f1c]">{c}</option>
+                      ))}
+                    </select>
+                    <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-slate-500">
+                      <ChevronRight size={14} className="rotate-90" />
+                    </div>
+                  </div>
+                </div>
+              </div>
+              <div className="space-y-2">
+                <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest flex items-center gap-2">
+                  <Mail size={16} /> Operational Contact
+                </label>
+                <input required name="email" type="email" placeholder="ops@supplier.com" className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white outline-none focus:ring-2 focus:ring-blue-600 transition-all" />
+              </div>
+              <button type="submit" className="w-full py-4 bg-blue-600 hover:bg-blue-500 text-white font-black uppercase tracking-widest text-xs rounded-2xl shadow-xl transition-all">
+                Finalize Node Registry
+              </button>
+            </form>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
+
+export default RegistryView;

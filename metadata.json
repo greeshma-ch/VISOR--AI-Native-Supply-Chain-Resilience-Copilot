@@ -1,0 +1,7 @@
+{
+  "name": "ChainGuard",
+  "description": "An AI-powered supply chain intelligence platform that monitors disruptions using real-time weather, news, and historical data.",
+  "requestFramePermissions": [
+    "geolocation"
+  ]
+}
