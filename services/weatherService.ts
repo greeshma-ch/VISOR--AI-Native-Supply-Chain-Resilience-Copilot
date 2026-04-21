@@ -29,28 +29,30 @@ export const fetchWeatherAlerts = async (suppliers: Supplier[]): Promise<Disrupt
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          'Accept': 'application/json',
         },
         body: JSON.stringify({ locations }),
       });
 
-      console.log('Weather alerts response status:', response.status);
+      console.log(`Weather alerts response: ${response.status} ${response.statusText}`);
       
-      const contentType = response.headers.get('content-type');
+      const contentType = response.headers.get('content-type') || '';
       if (!response.ok) {
-        if (contentType && contentType.includes('application/json')) {
+        if (contentType.includes('application/json')) {
           const error = await response.json();
           throw new Error(error.error || `Weather API Error ${response.status}`);
         } else {
           const text = await response.text();
-          console.error('Weather API returned non-JSON error:', text.substring(0, 200));
-          throw new Error(`Weather API returned ${response.status}: ${text.substring(0, 50)}...`);
+          console.error(`Weather API returned ${response.status} (non-JSON):`, text.substring(0, 200));
+          // If it's a 500-level error, retry might help
+          throw new Error(`Weather system returned ${response.status}. Expected JSON but got ${contentType.split(';')[0]}`);
         }
       }
 
-      if (!contentType || !contentType.includes('application/json')) {
+      if (!contentType.includes('application/json')) {
         const text = await response.text();
         console.error('Expected JSON but got:', contentType, text.substring(0, 100));
-        throw new Error('Invalid response format from weather service');
+        throw new Error('Invalid response format (HTML received instead of JSON). This usually indicates a routing issue or server error.');
       }
 
       const data = await response.json();

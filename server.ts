@@ -10,6 +10,11 @@ async function startServer() {
   const app = express();
   const PORT = 3000;
 
+  console.log("Initializing VISOR Intelligence Server...");
+  console.log("Environment check:");
+  console.log("- OPENWEATHER_API_KEY:", process.env.OPENWEATHER_API_KEY ? "CONFIGURED" : "MISSING");
+  console.log("- GEMINI_API_KEY:", process.env.GEMINI_API_KEY ? "CONFIGURED" : "MISSING");
+
   app.use(express.json());
 
   // API Route for health check

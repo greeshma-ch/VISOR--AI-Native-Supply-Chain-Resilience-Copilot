@@ -6,20 +6,24 @@ const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY || '' });
 
 // In-memory cache to reduce API calls and mitigate quota hits
 const intelCache = new Map<string, { data: IntelligenceBrief; timestamp: number }>();
-const CACHE_TTL = 10 * 60 * 1000; // 10 minutes
+const globalRiskCache = new Map<string, { data: Disruption[]; timestamp: number }>();
+const impactCache = new Map<string, { data: ImpactAnalysis; timestamp: number }>();
 
-const withRetry = async <T>(fn: () => Promise<T>, retries = 5, delay = 3000): Promise<T> => {
+const CACHE_TTL = 15 * 60 * 1000; // 15 minutes
+const GLOBAL_CACHE_TTL = 30 * 60 * 1000; // 30 minutes for global signals
+
+const withRetry = async <T>(fn: () => Promise<T>, retries = 5, delay = 5000): Promise<T> => {
   try {
     return await fn();
   } catch (error: any) {
-    const isQuotaError = error?.message?.includes('429') || error?.status === 'RESOURCE_EXHAUSTED';
-    const isTransientError = error?.message?.includes('500') || error?.message?.includes('Rpc failed') || error?.message?.includes('xhr error');
+    const isQuotaError = error?.message?.includes('429') || error?.status === 'RESOURCE_EXHAUSTED' || error?.message?.includes('quota');
+    const isTransientError = error?.message?.includes('500') || error?.message?.includes('Rpc failed') || error?.message?.includes('xhr error') || error?.message?.includes('fetch');
     
     if ((isQuotaError || isTransientError) && retries > 0) {
-      const errorType = isQuotaError ? 'Quota Exceeded' : 'Transient Server Error';
-      // Longer delay for quota errors
-      const currentDelay = isQuotaError ? delay * 2 : delay;
-      console.warn(`Gemini ${errorType}. Retrying in ${currentDelay}ms... (${retries} retries left)`);
+      const errorType = isQuotaError ? 'Quota Exceeded' : 'Transient/RPC Error';
+      // Longer exponential backoff for quota errors
+      const currentDelay = isQuotaError ? delay * 3 : delay;
+      console.warn(`Gemini ${errorType} [${error?.message?.substring(0, 50)}...]. Retrying in ${currentDelay}ms... (${retries} retries left)`);
       await new Promise(resolve => setTimeout(resolve, currentDelay));
       return withRetry(fn, retries - 1, currentDelay * 1.5);
     }
@@ -142,10 +146,18 @@ export const generateSupplierIntelligence = async (supplier: Supplier, weatherDa
 };
 
 export const generateGlobalRiskSignals = async (user: User, suppliers: Supplier[]): Promise<Disruption[]> => {
-  const currentDate = new Date().toLocaleDateString();
   const hqLocation = user.hqLocation || "Global";
-  const nodeRegions = Array.from(new Set(suppliers.map(s => s.location))).join(", ");
-  const supplierList = suppliers.slice(0, 15).map(s => `${s.name} (${s.location})`).join("; "); // Limit suppliers in prompt to save tokens/complexity
+  const nodeRegions = Array.from(new Set(suppliers.map(s => s.location))).sort().join("|");
+  const cacheKey = `global-${hqLocation}-${nodeRegions}`;
+  
+  const cached = globalRiskCache.get(cacheKey);
+  if (cached && (Date.now() - cached.timestamp < GLOBAL_CACHE_TTL)) {
+    return cached.data;
+  }
+
+  const currentDate = new Date().toLocaleDateString();
+  const nodeRegionsList = Array.from(new Set(suppliers.map(s => s.location))).join(", ");
+  const supplierList = suppliers.slice(0, 15).map(s => `${s.name} (${s.location})`).join("; "); 
   
   const prompt = `Role: Real-time Risk Analyst. Today: ${currentDate}.
   HQ: ${hqLocation}. Nodes in: ${nodeRegions}.
@@ -196,20 +208,34 @@ export const generateGlobalRiskSignals = async (user: User, suppliers: Supplier[
     const jsonText = response.text || "{\"disruptions\": []}";
     const data = JSON.parse(jsonText);
     
-    return data.disruptions.map((d: any) => ({
+    const result = data.disruptions.map((d: any) => ({
       ...d,
       impactedSuppliers: d.impactedSuppliers.map((name: string) => {
         const found = suppliers.find(s => s.name.toLowerCase() === name.toLowerCase());
         return found ? found.id : name;
       })
     }));
+
+    globalRiskCache.set(cacheKey, { data: result, timestamp: Date.now() });
+    return result;
   } catch (error) {
     console.error("Global Risk Signals Error:", error);
+    // Graceful fallback to cache if available even if stale
+    if (cached) {
+      console.warn("Serving stale global risk signals from cache due to API error.");
+      return cached.data;
+    }
     return [];
   }
 };
 
 export const generateImpactAnalysis = async (supplier: Supplier, isSimulated: boolean): Promise<ImpactAnalysis> => {
+  const cacheKey = `impact-${supplier.id}-${isSimulated}`;
+  const cached = impactCache.get(cacheKey);
+  if (cached && (Date.now() - cached.timestamp < CACHE_TTL)) {
+    return cached.data;
+  }
+
   const prompt = `Analytical Task: Impact assessment for ${supplier.name} in ${supplier.location}.
   ${isSimulated ? "SIMULATION: Identify critical infrastructure failure." : "Analyze current regional throughput constraints."}
   
@@ -234,9 +260,15 @@ export const generateImpactAnalysis = async (supplier: Supplier, isSimulated: bo
       },
     }));
 
-    return JSON.parse(result.text || "{}");
+    const data = JSON.parse(result.text || "{}");
+    impactCache.set(cacheKey, { data, timestamp: Date.now() });
+    return data;
   } catch (error) {
     console.error("Impact Analysis Error:", error);
+    if (cached) {
+      console.warn("Serving stale impact analysis from cache due to API error.");
+      return cached.data;
+    }
     return {
       bottleneck: "Intelligence Link Interrupted",
       estDelay: "Assessment Pending",
