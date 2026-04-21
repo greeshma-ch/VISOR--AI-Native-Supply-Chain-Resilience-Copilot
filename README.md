@@ -98,16 +98,20 @@ gcloud run deploy visor --source . --region us-west1
 ---
 
 
-📌 Project Context
+## 📌 Project Context
 
 This project was developed as a capstone submission for the BUILD the Future Showcase under Startup School (Google initiative), focusing on rapid prototyping of AI-powered applications.
+---
 
-💡 Future Improvements
-Predictive risk modeling using historical trends
-Supplier scoring dashboards with analytics
-Multi-region deployment for lower latency
-Alert integrations (email/SMS/webhooks)
-🧠 Key Takeaways
-Built an end-to-end AI system combining LLMs, real-time data, and cloud infrastructure
-Designed for scalability, interpretability, and real-world applicability
-Demonstrates strong understanding of full-stack + cloud + AI integration
+##💡 Future Improvements
+* Predictive risk modeling using historical trends
+* Supplier scoring dashboards with analytics
+* Multi-region deployment for lower latency
+* Alert integrations (email/SMS/webhooks)
+
+---
+## 🧠 Key Takeaways
+* Built an end-to-end AI system combining LLMs, real-time data, and cloud infrastructure
+* Designed for scalability, interpretability, and real-world applicability
+* Demonstrates strong understanding of full-stack + cloud + AI integration
+---
