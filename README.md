@@ -103,11 +103,14 @@ This project was developed as a capstone submission for the BUILD the Future Sho
 ## 📸 Application Preview
 
 <div align="center">
-![VISOR Dashboard]<img width="1919" height="1056" alt="dashboard" src="https://github.com/user-attachments/assets/8adf969b-7366-4a25-bbe1-374ba79ebd0c" />
+![VISOR Dashboard] <img width="1919" height="1056" alt="dashboard" src="https://github.com/user-attachments/assets/8adf969b-7366-4a25-bbe1-374ba79ebd0c" />
 
-![Risk Analysis view]<img width="1920" height="1200" alt="Risk Intelligence Briefing" src="https://github.com/user-attachments/assets/95b5c8aa-1a86-4ade-b9bb-400b9f7c9414" />
 
-![Map Analytics]<img width="1920" height="1128" alt="Map Anlaytics" src="https://github.com/user-attachments/assets/4ecd94c9-271d-473a-bf02-64de6677fdf5" />
+![Risk Analysis view] <img width="1920" height="1038" alt="Risk Intelligence Briefing" src="https://github.com/user-attachments/assets/5f31abbd-4377-48a6-975b-95024689593e" />
+
+
+
+![Map Analytics] <img width="1920" height="1059" alt="Map Anlaytics" src="https://github.com/user-attachments/assets/3a68c6fc-5d4d-40b3-abe2-d7790523f071" />
 
 </div>
 
