@@ -103,7 +103,7 @@ gcloud run deploy visor --source . --region us-west1
 This project was developed as a capstone submission for the BUILD the Future Showcase under Startup School (Google initiative), focusing on rapid prototyping of AI-powered applications.
 ---
 
-##💡 Future Improvements
+## 💡 Future Improvements
 * Predictive risk modeling using historical trends
 * Supplier scoring dashboards with analytics
 * Multi-region deployment for lower latency
