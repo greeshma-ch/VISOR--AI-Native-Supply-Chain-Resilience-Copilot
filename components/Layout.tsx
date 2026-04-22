@@ -2,6 +2,7 @@
 import React, { useState } from 'react';
 import { View, Role, User } from '../types';
 import { CATEGORIES } from '../constants';
+import { motion } from 'motion/react';
 import { 
   LayoutDashboard, 
   Users, 
@@ -76,7 +77,9 @@ const Layout: React.FC<LayoutProps> = ({
 
         <nav className="flex-1 px-4 py-8 space-y-2 overflow-y-auto custom-scrollbar">
           {menuItems.map((item) => (
-            <button
+            <motion.button
+              whileHover={{ x: 4 }}
+              whileTap={{ scale: 0.96 }}
               key={item.id}
               onClick={() => {
                 onViewChange(item.id);
@@ -91,7 +94,7 @@ const Layout: React.FC<LayoutProps> = ({
               <item.icon size={22} className={activeView === item.id ? 'text-blue-400' : 'text-slate-500 group-hover:text-slate-200'} />
               {!isCollapsed && <span className="font-semibold text-sm">{item.label}</span>}
               {activeView === item.id && !isCollapsed && <div className="w-1.5 h-1.5 rounded-full bg-blue-400 ml-auto shadow-[0_0_10px_rgba(96,165,250,0.8)]" />}
-            </button>
+            </motion.button>
           ))}
 
           {!isCollapsed && (

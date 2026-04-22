@@ -3,6 +3,8 @@ import React from 'react';
 import { User, Disruption, Supplier } from '../types';
 import { Bell, Cloud, Ship, Zap, Info, Clock, ExternalLink, Archive, Sun, CloudRain, CloudLightning, CloudSnow, Wind, Lock } from 'lucide-react';
 import { toast } from 'sonner';
+import { motion, AnimatePresence } from 'motion/react';
+import Skeleton from '../components/Skeleton';
 
 interface FeedViewProps {
   user: User;
@@ -141,7 +143,9 @@ const FeedView: React.FC<FeedViewProps> = ({ user, categoryFilter, onNavigateToR
                 : alert.title;
 
               return (
-                <div 
+                <motion.div 
+                  whileHover={{ scale: 1.02 }}
+                  whileTap={{ scale: 0.98 }}
                   key={alert.id} 
                   onClick={() => onNavigateToResources(displayTitle)}
                   className="bg-[#0a0f1c] p-6 sm:p-8 rounded-[2rem] border border-white/5 shadow-sm hover:shadow-xl transition-all duration-300 flex flex-col h-full group cursor-pointer"
@@ -201,9 +205,9 @@ const FeedView: React.FC<FeedViewProps> = ({ user, categoryFilter, onNavigateToR
                   </div>
                 </div>
               </div>
-            </div>
-          );
-        })}
+                </motion.div>
+              );
+            })}
       </div>
       
       {filteredDisruptions.length === 0 && (

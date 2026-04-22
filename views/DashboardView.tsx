@@ -13,6 +13,8 @@ import {
   Lock
 } from 'lucide-react';
 import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer } from 'recharts';
+import { motion, AnimatePresence } from 'motion/react';
+import Skeleton from '../components/Skeleton';
 
 interface DashboardViewProps {
   user: User;
@@ -130,22 +132,30 @@ const DashboardView: React.FC<DashboardViewProps> = ({
           </div>
         </div>
         <div className="flex gap-3 w-full sm:w-auto">
-          <button className="flex-1 sm:flex-none px-6 py-3 bg-white/5 border border-white/10 text-slate-300 font-black rounded-xl hover:bg-white/10 transition-all text-[10px] uppercase tracking-widest">
+          <motion.button 
+            whileHover={{ scale: 1.05 }}
+            whileTap={{ scale: 0.95 }}
+            className="flex-1 sm:flex-none px-6 py-3 bg-white/5 border border-white/10 text-slate-300 font-black rounded-xl hover:bg-white/10 transition-all text-[10px] uppercase tracking-widest"
+          >
             Export
-          </button>
-          <button 
+          </motion.button>
+          <motion.button 
+            whileHover={{ scale: 1.05 }}
+            whileTap={{ scale: 0.95 }}
             onClick={onResync}
             disabled={isRefreshing}
             className="flex-1 sm:flex-none px-6 py-3 bg-blue-600 text-white font-black rounded-xl hover:bg-blue-500 transition-all shadow-lg shadow-blue-900/20 flex items-center justify-center gap-2 text-[10px] uppercase tracking-widest disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {isRefreshing ? 'Syncing...' : 'Resync'} <TrendingUp size={16} className={isRefreshing ? 'animate-spin' : ''} />
-          </button>
+          </motion.button>
         </div>
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
         {stats.map((stat) => (
-          <button 
+          <motion.button 
+            whileHover={{ y: -5, scale: 1.01 }}
+            whileTap={{ scale: 0.98 }}
             key={stat.id} 
             onClick={() => onStatusFilterChange(stat.status as any)}
             className={`text-left bg-[#0a0f1c] p-6 sm:p-8 rounded-[2rem] border transition-all group relative overflow-hidden h-full ${
@@ -162,7 +172,7 @@ const DashboardView: React.FC<DashboardViewProps> = ({
             {statusFilter === stat.status && (
               <div className="absolute top-4 right-6 text-[8px] font-black text-blue-400 uppercase tracking-widest">Active Filter</div>
             )}
-          </button>
+          </motion.button>
         ))}
       </div>
 
@@ -283,10 +293,12 @@ const DashboardView: React.FC<DashboardViewProps> = ({
                 : d.title;
 
               return (
-                <button 
+                <motion.button 
+                  whileHover={{ x: 8, backgroundColor: 'rgba(255,255,255,0.05)' }}
+                  whileTap={{ scale: 0.98 }}
                   key={d.id} 
                   onClick={() => onNavigateToResource(displayTitle)}
-                  className="w-full text-left p-6 rounded-[2rem] bg-white/[0.02] border border-white/5 hover:bg-white/5 hover:border-white/10 transition-all group"
+                  className="w-full text-left p-6 rounded-[2rem] bg-white/[0.02] border border-white/5 hover:border-white/10 transition-all group"
                 >
                   <div className="flex items-center justify-between mb-3">
                     <span className={`px-2 py-0.5 rounded-md text-[8px] font-black uppercase tracking-widest ${
@@ -300,7 +312,7 @@ const DashboardView: React.FC<DashboardViewProps> = ({
                   </div>
                   <h4 className="font-black text-white text-sm sm:text-base leading-tight mb-2 truncate group-hover:text-blue-400 transition-colors">{displayTitle}</h4>
                   <p className="text-[11px] text-slate-500 line-clamp-2 leading-relaxed font-medium">{d.summary}</p>
-                </button>
+                </motion.button>
               );
             })}
           </div>

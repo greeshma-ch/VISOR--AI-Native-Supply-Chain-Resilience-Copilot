@@ -4,6 +4,7 @@ import { Supplier, IntelligenceBrief, RiskStatus, User, ImpactAnalysis } from '.
 import { generateSupplierIntelligence, generateImpactAnalysis } from '../services/geminiService';
 import { fetchCurrentWeather } from '../services/weatherService';
 import RiskBadge from '../components/RiskBadge';
+import Skeleton from '../components/Skeleton';
 import { 
   ArrowLeft, 
   ArrowRight,
@@ -25,6 +26,7 @@ import {
   Zap,
   MapPin
 } from 'lucide-react';
+import { motion, AnimatePresence } from 'motion/react';
 
 import { toast } from 'sonner';
 
@@ -49,19 +51,18 @@ const IntelligenceView: React.FC<IntelligenceViewProps> = ({ user, supplier, onB
   const [impactLoading, setImpactLoading] = useState(false);
   const [impactError, setImpactError] = useState(false);
 
+  // Background Fetching
   const fetchIntelligence = async () => {
-    setLoading(true);
+    // Note: We don't set global loading true if we already have some data (incremental update)
+    if (!brief) setLoading(true);
     setError(null);
     try {
-      // Parallelize weather and intelligence fetching for speed
       const weatherPromise = fetchCurrentWeather(supplier.coordinates[0], supplier.coordinates[1]);
-      
       const [weatherData] = await Promise.all([weatherPromise]);
       setWeather(weatherData);
 
       const intelPromise = generateSupplierIntelligence(supplier, weatherData, !!isSimulated);
       
-      // Impact analysis is limited for Basic
       let impactPromise = Promise.resolve(null);
       if (user.plan === 'Intermediate' || user.plan === 'Business') {
         impactPromise = generateImpactAnalysis(supplier, !!isSimulated);
@@ -79,7 +80,7 @@ const IntelligenceView: React.FC<IntelligenceViewProps> = ({ user, supplier, onB
         setImpactAnalysis(impactData);
       }
     } catch (err) {
-      setError("Failed to generate intelligence brief. Check your API key and network connection.");
+      if (!brief) setError("Failed to generate intelligence brief. Check your API key and network connection.");
     } finally {
       setLoading(false);
       setImpactLoading(false);
@@ -104,46 +105,35 @@ const IntelligenceView: React.FC<IntelligenceViewProps> = ({ user, supplier, onB
     fetchIntelligence();
   }, [supplier.id, isSimulated]);
 
-  if (loading) {
-    return (
-      <div className="h-full min-h-[400px] flex flex-col items-center justify-center p-6 sm:p-8 space-y-6 text-center">
-        <div className="w-12 h-12 sm:w-16 sm:h-16 border-4 border-blue-600 border-t-transparent rounded-full animate-spin" />
-        <div className="max-w-xs sm:max-w-sm">
-          <h3 className="text-lg sm:text-xl font-bold text-white">Synthesizing Signals...</h3>
-          <p className="text-slate-500 text-xs sm:text-sm mt-2">
-            VISOR AI is processing news and weather vectors for <b>{supplier.name}</b>.
-          </p>
-        </div>
-      </div>
-    );
-  }
-
   if (error) {
     return (
       <div className="p-8 sm:p-12 bg-rose-500/5 rounded-3xl border border-rose-500/10 flex flex-col items-center text-center max-w-lg mx-auto">
         <ShieldAlert size={48} className="text-rose-500 mb-4" />
         <h3 className="text-xl font-bold text-white">Analysis Interrupted</h3>
         <p className="text-slate-500 mt-2 text-sm">{error}</p>
-        <button 
+        <motion.button 
+          whileTap={{ scale: 0.95 }}
           onClick={fetchIntelligence}
           className="mt-6 px-8 py-3 bg-blue-600 text-white rounded-xl font-bold shadow-lg shadow-blue-900/20"
         >
           Retry Analysis
-        </button>
+        </motion.button>
       </div>
     );
   }
 
   return (
-    <div className="space-y-6 sm:space-y-8 animate-in slide-in-from-right-4 duration-500 pb-12">
+    <div className="space-y-6 sm:space-y-8 animate-in fade-in duration-500 pb-12">
       <div className="flex flex-col sm:flex-row sm:items-center gap-4">
         <div className="flex items-center gap-4">
-          <button 
+          <motion.button 
+            whileHover={{ scale: 1.1 }}
+            whileTap={{ scale: 0.9 }}
             onClick={onBack}
             className="p-2 hover:bg-white/5 rounded-lg text-slate-400 transition-colors"
           >
             <ArrowLeft size={24} />
-          </button>
+          </motion.button>
           <div className="flex flex-col min-w-0">
             <h2 className="text-2xl sm:text-3xl font-bold text-white truncate max-w-[200px] sm:max-w-none">{supplier.name}</h2>
             {(user.plan === 'Business' || user.plan === 'Intermediate') && (
@@ -154,7 +144,9 @@ const IntelligenceView: React.FC<IntelligenceViewProps> = ({ user, supplier, onB
           </div>
         </div>
         <div className="flex items-center gap-4 sm:ml-auto">
-          <button 
+          <motion.button 
+            whileHover={{ scale: 1.02 }}
+            whileTap={{ scale: 0.98 }}
             onClick={onToggleSimulation}
             className={`px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all border flex items-center gap-2 ${
               isSimulated 
@@ -164,38 +156,56 @@ const IntelligenceView: React.FC<IntelligenceViewProps> = ({ user, supplier, onB
           >
             <Zap size={14} className={isSimulated ? 'animate-pulse' : ''} />
             {isSimulated ? 'Crisis Mode Active' : 'Test Crisis Mode'}
-          </button>
+          </motion.button>
           <div className="h-10 w-[1px] bg-white/5 mx-2 hidden sm:block" />
           <div className="flex flex-col items-end">
             <span className="text-[8px] font-black text-slate-500 uppercase tracking-widest mb-1">Registry Status</span>
             <RiskBadge status={isSimulated ? RiskStatus.RISKY : supplier.status} size="md" />
           </div>
-          {brief?.suggestedStatus && (
-            <div className="flex flex-col items-end border-l border-white/10 pl-4">
-              <span className="text-[8px] font-black text-blue-500 uppercase tracking-widest mb-1">AI Assessment</span>
-              <div className="flex items-center gap-2">
-                <RiskBadge status={brief.suggestedStatus} size="md" />
-                {brief.suggestedStatus === supplier.status ? (
-                  <div className="flex items-center gap-1 text-[8px] font-black text-emerald-500 uppercase tracking-widest bg-emerald-500/10 px-2 py-1 rounded-md border border-emerald-500/20">
-                    <Check size={10} /> Synchronized
-                  </div>
-                ) : (
-                  <div className="flex items-center gap-1 text-[8px] font-black text-amber-500 uppercase tracking-widest bg-amber-500/10 px-2 py-1 rounded-md border border-amber-500/20 animate-pulse">
-                    <RefreshCw size={10} className="animate-spin" /> Syncing...
-                  </div>
-                )}
-              </div>
-              <p className="text-[9px] font-medium text-slate-600 mt-1 opacity-60">
-                {weather?.weather?.[0]?.main || 'N/A'} + {brief?.todayFeed?.[0]?.status || 'N/A'} = {brief?.suggestedStatus}
-              </p>
-            </div>
-          )}
-          <button 
+          <AnimatePresence>
+            {loading ? (
+              <motion.div 
+                initial={{ opacity: 0, x: 20 }}
+                animate={{ opacity: 1, x: 0 }}
+                exit={{ opacity: 0, x: 20 }}
+                className="flex flex-col items-end border-l border-white/10 pl-4 min-w-[120px]"
+              >
+                <Skeleton className="h-2 w-16 mb-2" />
+                <Skeleton className="h-6 w-24" />
+              </motion.div>
+            ) : brief?.suggestedStatus && (
+              <motion.div 
+                initial={{ opacity: 0, x: 20 }}
+                animate={{ opacity: 1, x: 0 }}
+                className="flex flex-col items-end border-l border-white/10 pl-4"
+              >
+                <span className="text-[8px] font-black text-blue-500 uppercase tracking-widest mb-1">AI Assessment</span>
+                <div className="flex items-center gap-2">
+                  <RiskBadge status={brief.suggestedStatus} size="md" />
+                  {brief.suggestedStatus === supplier.status ? (
+                    <div className="flex items-center gap-1 text-[8px] font-black text-emerald-500 uppercase tracking-widest bg-emerald-500/10 px-2 py-1 rounded-md border border-emerald-500/20">
+                      <Check size={10} /> Synchronized
+                    </div>
+                  ) : (
+                    <div className="flex items-center gap-1 text-[8px] font-black text-amber-500 uppercase tracking-widest bg-amber-500/10 px-2 py-1 rounded-md border border-amber-500/20 animate-pulse">
+                      <RefreshCw size={10} className="animate-spin" /> Syncing...
+                    </div>
+                  )}
+                </div>
+                <p className="text-[9px] font-medium text-slate-600 mt-1 opacity-60">
+                  {weather?.weather?.[0]?.main || 'N/A'} + {brief?.todayFeed?.[0]?.status || 'N/A'} = {brief?.suggestedStatus}
+                </p>
+              </motion.div>
+            )}
+          </AnimatePresence>
+          <motion.button 
+            whileHover={{ rotate: 180 }}
+            whileTap={{ scale: 0.9 }}
             onClick={fetchIntelligence}
             className="p-2.5 bg-white/5 border border-white/10 text-slate-400 rounded-xl hover:text-white transition-all shadow-sm self-end"
           >
-            <RefreshCw size={18} />
-          </button>
+            <RefreshCw size={18} className={loading ? 'animate-spin' : ''} />
+          </motion.button>
         </div>
       </div>
 
@@ -208,69 +218,84 @@ const IntelligenceView: React.FC<IntelligenceViewProps> = ({ user, supplier, onB
         
         {(user.plan === 'Intermediate' || user.plan === 'Business') ? (
           <>
-            <button 
+            <motion.button 
+              whileTap={{ scale: 0.98 }}
               onClick={() => setIsImpactExpanded(!isImpactExpanded)}
               className="text-blue-400 text-xs font-black uppercase tracking-widest hover:text-blue-300 transition-colors flex items-center gap-2"
             >
               {isImpactExpanded ? 'Hide' : 'View'} AI Impact Analysis
-            </button>
+            </motion.button>
             
-            {isImpactExpanded && (
-              <div className="mt-6 animate-in fade-in slide-in-from-top-2 duration-300">
-                {impactLoading ? (
-                  <div className="flex items-center gap-3 text-slate-500 text-xs italic py-4">
-                    <RefreshCw size={14} className="animate-spin" /> Calculating impact vectors...
-                  </div>
-                ) : impactError ? (
-                  <div className="p-4 bg-rose-500/5 border border-rose-500/10 rounded-xl text-rose-500 text-xs font-medium">
-                    Failed to generate impact analysis. Please retry.
-                  </div>
-                ) : impactAnalysis ? (
-                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
-                    <div className="space-y-1">
-                      <p className="text-[10px] font-black text-slate-600 uppercase tracking-widest">Bottleneck</p>
-                      <p className="text-sm font-bold text-white">{impactAnalysis.bottleneck}</p>
+            <AnimatePresence>
+              {isImpactExpanded && (
+                <motion.div 
+                  initial={{ height: 0, opacity: 0 }}
+                  animate={{ height: 'auto', opacity: 1 }}
+                  exit={{ height: 0, opacity: 0 }}
+                  className="mt-6 overflow-hidden"
+                >
+                  {impactLoading ? (
+                    <div className="space-y-6 py-4">
+                      <div className="flex items-center gap-3 text-slate-500 text-xs italic mb-4">
+                        <RefreshCw size={14} className="animate-spin" /> Calculating impact vectors...
+                      </div>
+                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
+                        <Skeleton className="h-10 w-full" />
+                        <Skeleton className="h-10 w-full" />
+                        <Skeleton className="h-10 w-full" />
+                      </div>
                     </div>
-                    <div className="space-y-1">
-                      <p className="text-[10px] font-black text-slate-600 uppercase tracking-widest">Est. Delay</p>
-                      <p className="text-sm font-bold text-white">{impactAnalysis.estDelay}</p>
+                  ) : impactError ? (
+                    <div className="p-4 bg-rose-500/5 border border-rose-500/10 rounded-xl text-rose-500 text-xs font-medium">
+                      Failed to generate impact analysis. Please retry.
                     </div>
-                    <div className="space-y-1 relative">
-                      {user.plan === 'Intermediate' && (
-                        <div className="absolute inset-0 z-10 bg-black/60 backdrop-blur-[2px] flex items-center justify-center rounded-lg">
-                          <span className="text-[7px] font-black text-blue-400 uppercase tracking-widest bg-black px-2 py-1 rounded border border-blue-500/30">Business Only</span>
-                        </div>
-                      )}
-                      <p className="text-[10px] font-black text-slate-600 uppercase tracking-widest">Strategic Action</p>
-                      <p className="text-sm font-bold text-white">{impactAnalysis.strategicAction}</p>
+                  ) : impactAnalysis ? (
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
+                      <div className="space-y-1">
+                        <p className="text-[10px] font-black text-slate-600 uppercase tracking-widest">Bottleneck</p>
+                        <p className="text-sm font-bold text-white">{impactAnalysis.bottleneck}</p>
+                      </div>
+                      <div className="space-y-1">
+                        <p className="text-[10px] font-black text-slate-600 uppercase tracking-widest">Est. Delay</p>
+                        <p className="text-sm font-bold text-white">{impactAnalysis.estDelay}</p>
+                      </div>
+                      <div className="space-y-1 relative">
+                        {user.plan === 'Intermediate' && (
+                          <div className="absolute inset-0 z-10 bg-black/60 backdrop-blur-[2px] flex items-center justify-center rounded-lg">
+                            <span className="text-[7px] font-black text-blue-400 uppercase tracking-widest bg-black px-2 py-1 rounded border border-blue-500/30">Business Only</span>
+                          </div>
+                        )}
+                        <p className="text-[10px] font-black text-slate-600 uppercase tracking-widest">Strategic Action</p>
+                        <p className="text-sm font-bold text-white">{impactAnalysis.strategicAction}</p>
+                      </div>
+                      <div className="sm:col-span-3 pt-4 border-t border-white/5 relative">
+                        {user.plan === 'Intermediate' && (
+                          <div className="absolute inset-0 z-10 bg-black/40 backdrop-blur-[1px] flex items-center justify-center rounded-xl">
+                            <span className="text-[8px] font-black text-blue-400 uppercase tracking-widest bg-[#0a0f1c] px-3 py-1 rounded-full border border-blue-500/30">Business Tier Upgrade Required</span>
+                          </div>
+                        )}
+                        <motion.button 
+                          whileTap={{ scale: 0.95 }}
+                          onClick={() => {
+                            setMitigationSuccess(true);
+                            toast.success("Mitigation Protocol Executed", {
+                              description: "Strategic actions have been dispatched to regional logistics teams."
+                            });
+                          }}
+                          className={`px-6 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${
+                            mitigationSuccess 
+                              ? 'bg-emerald-600 text-white shadow-lg shadow-emerald-900/20' 
+                              : 'bg-white/5 text-slate-400 hover:bg-white/10 border border-white/5'
+                          }`}
+                        >
+                          {mitigationSuccess ? 'Success' : 'Execute Mitigation'}
+                        </motion.button>
+                      </div>
                     </div>
-                    <div className="sm:col-span-3 pt-4 border-t border-white/5 relative">
-                      {user.plan === 'Intermediate' && (
-                        <div className="absolute inset-0 z-10 bg-black/40 backdrop-blur-[1px] flex items-center justify-center rounded-xl">
-                          <span className="text-[8px] font-black text-blue-400 uppercase tracking-widest bg-[#0a0f1c] px-3 py-1 rounded-full border border-blue-500/30">Business Tier Upgrade Required</span>
-                        </div>
-                      )}
-                      <button 
-                        onClick={() => {
-                          console.log('Mitigation Executed');
-                          setMitigationSuccess(true);
-                          toast.success("Mitigation Protocol Executed", {
-                            description: "Strategic actions have been dispatched to regional logistics teams."
-                          });
-                        }}
-                        className={`px-6 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${
-                          mitigationSuccess 
-                            ? 'bg-emerald-600 text-white shadow-lg shadow-emerald-900/20' 
-                            : 'bg-white/5 text-slate-400 hover:bg-white/10 border border-white/5'
-                        }`}
-                      >
-                        {mitigationSuccess ? 'Success' : 'Execute Mitigation'}
-                      </button>
-                    </div>
-                  </div>
-                ) : null}
-              </div>
-            )}
+                  ) : null}
+                </motion.div>
+              )}
+            </AnimatePresence>
           </>
         ) : (
           <div className="flex items-center gap-3 py-2">
@@ -288,28 +313,37 @@ const IntelligenceView: React.FC<IntelligenceViewProps> = ({ user, supplier, onB
                 <Lock className="text-blue-500 mb-4" size={32} />
                 <h4 className="text-white font-bold mb-2">AI Insights Locked</h4>
                 <p className="text-slate-500 text-xs max-w-[240px]">Upgrade to Intermediate or Business tier to unlock real-time intelligence synthesis.</p>
-                <button 
+                <motion.button 
+                  whileTap={{ scale: 0.95 }}
                   onClick={onBack}
                   className="mt-4 px-6 py-2 bg-blue-600 text-white text-[10px] font-black uppercase tracking-widest rounded-xl"
                 >
                   Upgrade Plan
-                </button>
+                </motion.button>
               </div>
             )}
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-base sm:text-lg font-bold text-white flex items-center gap-2">
                 <RefreshCw size={18} className="text-blue-500" /> Operational Vectors
               </h3>
-              {brief?.suggestedStatus && (
+              {!loading && brief?.suggestedStatus && (
                 <div className="flex items-center gap-2">
                   <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Live Signal:</span>
                   <RiskBadge status={brief.suggestedStatus} size="sm" />
                 </div>
               )}
             </div>
-            <p className="text-slate-400 leading-relaxed text-sm sm:text-base">
-              {brief?.summary}
-            </p>
+            {loading ? (
+              <div className="space-y-3">
+                <Skeleton className="h-4 w-full" />
+                <Skeleton className="h-4 w-[90%]" />
+                <Skeleton className="h-4 w-[95%]" />
+              </div>
+            ) : (
+              <p className="text-slate-400 leading-relaxed text-sm sm:text-base">
+                {brief?.summary}
+              </p>
+            )}
           </section>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6">
@@ -318,7 +352,19 @@ const IntelligenceView: React.FC<IntelligenceViewProps> = ({ user, supplier, onB
                 <CloudSun size={16} className="text-amber-500" /> Weather Matrix
               </h4>
               
-              {weather ? (
+              {loading && !weather ? (
+                <div className="space-y-4">
+                  <div className="flex justify-between items-center">
+                    <Skeleton className="h-10 w-24" />
+                    <Skeleton className="h-8 w-16" />
+                  </div>
+                  <div className="grid grid-cols-3 gap-2">
+                    <Skeleton className="h-12 w-full" />
+                    <Skeleton className="h-12 w-full" />
+                    <Skeleton className="h-12 w-full" />
+                  </div>
+                </div>
+              ) : weather ? (
                 <div className="space-y-4">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-3">
@@ -360,7 +406,7 @@ const IntelligenceView: React.FC<IntelligenceViewProps> = ({ user, supplier, onB
                   </div>
                   
                   <p className="text-slate-400 text-xs leading-relaxed mt-4 italic">
-                    AI Analysis: {brief?.weatherStatus}
+                    AI Analysis: {loading ? <Skeleton className="h-3 w-32 inline-block" /> : brief?.weatherStatus}
                   </p>
                 </div>
               ) : (
@@ -371,7 +417,14 @@ const IntelligenceView: React.FC<IntelligenceViewProps> = ({ user, supplier, onB
               <h4 className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-3 flex items-center gap-2">
                 <History size={16} className="text-indigo-500" /> Regional Archive
               </h4>
-              <p className="text-slate-400 text-xs sm:text-sm leading-relaxed">{brief?.historicalContext}</p>
+              {loading ? (
+                <div className="space-y-2">
+                  <Skeleton className="h-3 w-full" />
+                  <Skeleton className="h-3 w-[80%]" />
+                </div>
+              ) : (
+                <p className="text-slate-400 text-xs sm:text-sm leading-relaxed">{brief?.historicalContext}</p>
+              )}
             </div>
           </div>
 
@@ -381,60 +434,70 @@ const IntelligenceView: React.FC<IntelligenceViewProps> = ({ user, supplier, onB
             </h3>
             
             <div className="space-y-8">
-              {/* Today's Feed */}
-              {brief?.todayFeed && brief.todayFeed.length > 0 && (
-                <div className="space-y-4">
-                  <h4 className="text-[10px] font-black text-slate-500 uppercase tracking-widest flex items-center gap-2">
-                    <Calendar size={14} className="text-blue-500" /> Today's Briefing
-                  </h4>
-                  <div className="space-y-3">
-                    {brief.todayFeed.map((item, i) => (
-                      <div key={i} className="p-4 bg-white/[0.02] rounded-2xl border border-white/5 space-y-2">
-                        <div className="flex items-start justify-between gap-4">
-                          <p className="text-slate-200 font-bold text-sm leading-tight">{item.title}</p>
-                          <RiskBadge status={item.status} size="sm" />
-                        </div>
-                        <div className="flex items-start gap-2 pt-2 border-t border-white/5">
-                          <Lightbulb size={14} className="text-amber-500 mt-0.5 flex-shrink-0" />
-                          <p className="text-slate-400 text-xs leading-relaxed italic">
-                            <span className="font-bold text-slate-300">Insight:</span> {item.insight}
-                          </p>
-                        </div>
+              {loading ? (
+                <div className="space-y-6">
+                  <Skeleton className="h-16 w-full" />
+                  <Skeleton className="h-16 w-full" />
+                  <Skeleton className="h-16 w-full" />
+                </div>
+              ) : (
+                <>
+                  {/* Today's Feed */}
+                  {brief?.todayFeed && brief.todayFeed.length > 0 && (
+                    <div className="space-y-4">
+                      <h4 className="text-[10px] font-black text-slate-500 uppercase tracking-widest flex items-center gap-2">
+                        <Calendar size={14} className="text-blue-500" /> Today's Briefing
+                      </h4>
+                      <div className="space-y-3">
+                        {brief.todayFeed.map((item, i) => (
+                          <div key={i} className="p-4 bg-white/[0.02] rounded-2xl border border-white/5 space-y-2">
+                            <div className="flex items-start justify-between gap-4">
+                              <p className="text-slate-200 font-bold text-sm leading-tight">{item.title}</p>
+                              <RiskBadge status={item.status} size="sm" />
+                            </div>
+                            <div className="flex items-start gap-2 pt-2 border-t border-white/5">
+                              <Lightbulb size={14} className="text-amber-500 mt-0.5 flex-shrink-0" />
+                              <p className="text-slate-400 text-xs leading-relaxed italic">
+                                <span className="font-bold text-slate-300">Insight:</span> {item.insight}
+                              </p>
+                            </div>
+                          </div>
+                        ))}
                       </div>
-                    ))}
-                  </div>
-                </div>
-              )}
+                    </div>
+                  )}
 
-              {/* Recent Feed */}
-              {brief?.recentFeed && brief.recentFeed.length > 0 && (
-                <div className="space-y-4">
-                  <h4 className="text-[10px] font-black text-slate-500 uppercase tracking-widest flex items-center gap-2">
-                    <History size={14} className="text-indigo-500" /> Recent Intelligence
-                  </h4>
-                  <div className="space-y-3">
-                    {brief.recentFeed.map((item, i) => (
-                      <div key={i} className="p-4 bg-white/[0.02] rounded-2xl border border-white/5 space-y-2 opacity-80 hover:opacity-100 transition-opacity">
-                        <div className="flex items-start justify-between gap-4">
-                          <p className="text-slate-300 font-medium text-sm leading-tight">{item.title}</p>
-                          <RiskBadge status={item.status} size="sm" />
-                        </div>
-                        <div className="flex items-start gap-2 pt-2 border-t border-white/5">
-                          <Lightbulb size={14} className="text-slate-500 mt-0.5 flex-shrink-0" />
-                          <p className="text-slate-500 text-xs leading-relaxed italic">
-                            <span className="font-bold text-slate-400">Insight:</span> {item.insight}
-                          </p>
-                        </div>
+                  {/* Recent Feed */}
+                  {brief?.recentFeed && brief.recentFeed.length > 0 && (
+                    <div className="space-y-4">
+                      <h4 className="text-[10px] font-black text-slate-500 uppercase tracking-widest flex items-center gap-2">
+                        <History size={14} className="text-indigo-500" /> Recent Intelligence
+                      </h4>
+                      <div className="space-y-3">
+                        {brief.recentFeed.map((item, i) => (
+                          <div key={i} className="p-4 bg-white/[0.02] rounded-2xl border border-white/5 space-y-2 opacity-80 hover:opacity-100 transition-opacity">
+                            <div className="flex items-start justify-between gap-4">
+                              <p className="text-slate-300 font-medium text-sm leading-tight">{item.title}</p>
+                              <RiskBadge status={item.status} size="sm" />
+                            </div>
+                            <div className="flex items-start gap-2 pt-2 border-t border-white/5">
+                              <Lightbulb size={14} className="text-slate-500 mt-0.5 flex-shrink-0" />
+                              <p className="text-slate-500 text-xs leading-relaxed italic">
+                                <span className="font-bold text-slate-400">Insight:</span> {item.insight}
+                              </p>
+                            </div>
+                          </div>
+                        ))}
                       </div>
-                    ))}
-                  </div>
-                </div>
-              )}
+                    </div>
+                  )}
 
-              {(!brief?.todayFeed?.length && !brief?.recentFeed?.length) && (
-                <div className="text-center py-8">
-                  <p className="text-slate-500 text-sm italic">No recent intelligence signals detected for this node.</p>
-                </div>
+                  {(!brief?.todayFeed?.length && !brief?.recentFeed?.length) && (
+                    <div className="text-center py-8">
+                      <p className="text-slate-500 text-sm italic">No recent intelligence signals detected for this node.</p>
+                    </div>
+                  )}
+                </>
               )}
             </div>
           </section>
@@ -446,12 +509,19 @@ const IntelligenceView: React.FC<IntelligenceViewProps> = ({ user, supplier, onB
               <Lightbulb size={18} className="text-blue-200" /> Mitigation Plan
             </h3>
             <div className="space-y-4">
-              {brief?.recommendations.map((rec, i) => (
-                <div key={i} className="flex gap-3 text-xs sm:text-sm">
-                  <span className="font-bold text-blue-200">{i + 1}.</span>
-                  <p className="text-blue-50 leading-relaxed font-medium">{rec}</p>
+              {loading ? (
+                <div className="space-y-3">
+                  <Skeleton className="h-10 w-full bg-blue-700/50" />
+                  <Skeleton className="h-10 w-full bg-blue-700/50" />
                 </div>
-              ))}
+              ) : (
+                brief?.recommendations.map((rec, i) => (
+                  <div key={i} className="flex gap-3 text-xs sm:text-sm">
+                    <span className="font-bold text-blue-200">{i + 1}.</span>
+                    <p className="text-blue-50 leading-relaxed font-medium">{rec}</p>
+                  </div>
+                ))
+              )}
             </div>
           </section>
 
@@ -465,26 +535,35 @@ const IntelligenceView: React.FC<IntelligenceViewProps> = ({ user, supplier, onB
                   <span className="text-[10px] font-black text-blue-400 uppercase tracking-widest bg-[#0a0f1c] px-3 py-1 rounded-full border border-blue-500/30">Business Tier Only</span>
                 </div>
               )}
-              {brief?.alternativeSuppliers.map((alt, i) => (
-                <button 
-                  key={i} 
-                  onClick={() => onNavigateToResources({
-                    title: `Intelligence for ${supplier.name}`,
-                    sources: brief?.sources || []
-                  })}
-                  className="w-full text-left p-3 bg-white/5 hover:bg-white/10 rounded-xl flex items-center justify-between text-xs sm:text-sm transition-colors group"
-                >
-                  <span className="font-bold text-slate-300 group-hover:text-white">{alt}</span>
-                  <ExternalLink size={16} className="text-slate-600 group-hover:text-blue-400 transition-colors" />
-                </button>
-              ))}
+              {loading ? (
+                <div className="space-y-2">
+                  <Skeleton className="h-10 w-full" />
+                  <Skeleton className="h-10 w-full" />
+                </div>
+              ) : (
+                brief?.alternativeSuppliers.map((alt, i) => (
+                  <motion.button 
+                    whileHover={{ x: 5 }}
+                    key={i} 
+                    onClick={() => onNavigateToResources({
+                      title: `Intelligence for ${supplier.name}`,
+                      sources: brief?.sources || []
+                    })}
+                    className="w-full text-left p-3 bg-white/5 hover:bg-white/10 rounded-xl flex items-center justify-between text-xs sm:text-sm transition-colors group"
+                  >
+                    <span className="font-bold text-slate-300 group-hover:text-white">{alt}</span>
+                    <ExternalLink size={16} className="text-slate-600 group-hover:text-blue-400 transition-colors" />
+                  </motion.button>
+                ))
+              )}
             </div>
           </section>
 
           <section className="bg-white/[0.02] p-6 rounded-3xl border border-dashed border-white/10">
             <div className="flex items-center justify-between mb-4">
               <h4 className="text-[10px] font-black text-slate-600 uppercase tracking-widest">Verification Sources</h4>
-              <button 
+              <motion.button 
+                whileTap={{ scale: 0.95 }}
                 onClick={() => onNavigateToResources({
                   title: `Verification Sources: ${supplier.name}`,
                   sources: brief?.sources || []
@@ -492,22 +571,30 @@ const IntelligenceView: React.FC<IntelligenceViewProps> = ({ user, supplier, onB
                 className="text-[10px] font-bold text-blue-500 hover:text-blue-400 uppercase tracking-widest flex items-center gap-1 transition-colors"
               >
                 Export All <ArrowRight size={16} />
-              </button>
+              </motion.button>
             </div>
             <div className="space-y-2">
-              {brief?.sources.slice(0, 3).map((source, i) => (
-                <button 
-                  key={i}
-                  onClick={() => onNavigateToResources({
-                    title: `Verification Source: ${source.title}`,
-                    sources: [source]
-                  })}
-                  className="w-full flex items-center justify-between text-[10px] text-slate-500 hover:text-blue-400 transition-colors text-left group"
-                >
-                  <span className="truncate max-w-[180px] group-hover:underline underline-offset-2">{source.title}</span>
-                  <ExternalLink size={12} className="opacity-50 group-hover:opacity-100" />
-                </button>
-              ))}
+              {loading ? (
+                <div className="space-y-2">
+                  <Skeleton className="h-4 w-full opacity-30" />
+                  <Skeleton className="h-4 w-2/3 opacity-30" />
+                </div>
+              ) : (
+                brief?.sources.slice(0, 3).map((source, i) => (
+                  <motion.button 
+                    whileHover={{ opacity: 0.8 }}
+                    key={i}
+                    onClick={() => onNavigateToResources({
+                      title: `Verification Source: ${source.title}`,
+                      sources: [source]
+                    })}
+                    className="w-full flex items-center justify-between text-[10px] text-slate-500 hover:text-blue-400 transition-colors text-left group"
+                  >
+                    <span className="truncate max-w-[180px] group-hover:underline underline-offset-2">{source.title}</span>
+                    <ExternalLink size={12} className="opacity-50 group-hover:opacity-100" />
+                  </motion.button>
+                ))
+              )}
             </div>
           </section>
         </div>

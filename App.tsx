@@ -16,9 +16,34 @@ import SubscriptionView from './views/SubscriptionView';
 import ResourcesView from './views/ResourcesView';
 import PaymentView from './views/PaymentView';
 import { Toaster, toast } from 'sonner';
+import { motion, AnimatePresence, useMotionValue, useTransform } from 'motion/react';
 
 const App: React.FC = () => {
   const [view, setView] = useState<View>('DASHBOARD');
+  const [direction, setDirection] = useState(0); // 1 for right, -1 for left
+
+  const viewOrder: View[] = ['DASHBOARD', 'REGISTRY', 'MAP', 'FEED', 'RESOURCES', 'SETTINGS'];
+
+  const handleViewChange = (newView: View) => {
+    const oldIndex = viewOrder.indexOf(view);
+    const newIndex = viewOrder.indexOf(newView);
+    if (oldIndex !== -1 && newIndex !== -1) {
+      setDirection(newIndex > oldIndex ? 1 : -1);
+    }
+    setView(newView);
+  };
+
+  const handleSwipe = (offset: number) => {
+    const currentIndex = viewOrder.indexOf(view);
+    if (currentIndex === -1) return;
+
+    if (offset < -100 && currentIndex < viewOrder.length - 1) {
+      handleViewChange(viewOrder[currentIndex + 1]);
+    } else if (offset > 100 && currentIndex > 0) {
+      handleViewChange(viewOrder[currentIndex - 1]);
+    }
+  };
+
   const [user, setUser] = useState<User | null>(() => {
     const saved = localStorage.getItem('vs_session');
     if (saved) {
@@ -311,7 +336,7 @@ const App: React.FC = () => {
     <>
     <Layout 
       activeView={view} 
-      onViewChange={setView} 
+      onViewChange={handleViewChange} 
       onLogout={handleLogout}
       user={user}
       categoryFilter={categoryFilter}
@@ -319,30 +344,54 @@ const App: React.FC = () => {
     >
       <div className="relative h-full overflow-hidden flex flex-col">
         {/* Main Application Content - Responsive Padding */}
-        <div className={`transition-all duration-700 flex-1 ${view === 'MAP' ? 'overflow-hidden' : 'overflow-y-auto px-4 sm:px-6 md:px-8 lg:px-10 py-6 sm:py-8 lg:py-10'} custom-scrollbar ${selectedSupplier ? 'opacity-20 blur-md scale-[0.98] pointer-events-none' : 'opacity-100 scale-100'}`}>
-          {renderView()}
-        </div>
+        <motion.div 
+          drag="x"
+          dragConstraints={{ left: 0, right: 0 }}
+          onDragEnd={(_, info) => handleSwipe(info.offset.x)}
+          className={`flex-1 ${view === 'MAP' ? 'overflow-hidden' : 'overflow-y-auto px-4 sm:px-6 md:px-8 lg:px-10 py-6 sm:py-8 lg:py-10'} custom-scrollbar ${selectedSupplier ? 'opacity-20 blur-md scale-[0.98] pointer-events-none' : 'opacity-100 scale-100'}`}
+        >
+          <AnimatePresence mode="popLayout" initial={false}>
+            <motion.div
+              key={view}
+              initial={{ x: direction > 0 ? 50 : -50, opacity: 0 }}
+              animate={{ x: 0, opacity: 1 }}
+              exit={{ x: direction > 0 ? -50 : 50, opacity: 0 }}
+              transition={{ duration: 0.15, ease: "easeOut" }}
+              className="h-full"
+            >
+              {renderView()}
+            </motion.div>
+          </AnimatePresence>
+        </motion.div>
 
         {/* Intelligence View Overlay */}
-        {selectedSupplier && (
-          <div className="fixed inset-0 z-50 bg-[#070b14]/90 backdrop-blur-xl overflow-y-auto animate-in slide-in-from-right-10 duration-500 shadow-2xl">
-            <div className="max-w-[1600px] mx-auto p-4 sm:p-6 md:p-10 min-h-full">
-              <IntelligenceView 
-                user={user}
-                supplier={selectedSupplier} 
-                onBack={() => setSelectedSupplier(null)}
-                onUpdateStatus={(status) => updateSupplierStatus(selectedSupplier.id, status)}
-                onNavigateToResources={(context) => {
-                    if (context) setResourceContext(context);
-                    setSelectedSupplier(null);
-                    setView('RESOURCES');
-                }}
-                isSimulated={simulatedRiskyNodes.includes(selectedSupplier.id)}
-                onToggleSimulation={() => toggleNodeSimulation(selectedSupplier.id)}
-              />
-            </div>
-          </div>
-        )}
+        <AnimatePresence>
+          {selectedSupplier && (
+            <motion.div 
+              initial={{ x: '100%' }}
+              animate={{ x: 0 }}
+              exit={{ x: '100%' }}
+              transition={{ type: "spring", damping: 25, stiffness: 300, restDelta: 0.5 }}
+              className="fixed inset-0 z-50 bg-[#070b14]/90 backdrop-blur-xl overflow-y-auto shadow-2xl"
+            >
+              <div className="max-w-[1600px] mx-auto p-4 sm:p-6 md:p-10 min-h-full">
+                <IntelligenceView 
+                  user={user}
+                  supplier={selectedSupplier} 
+                  onBack={() => setSelectedSupplier(null)}
+                  onUpdateStatus={(status) => updateSupplierStatus(selectedSupplier.id, status)}
+                  onNavigateToResources={(context) => {
+                      if (context) setResourceContext(context);
+                      setSelectedSupplier(null);
+                      setView('RESOURCES');
+                  }}
+                  isSimulated={simulatedRiskyNodes.includes(selectedSupplier.id)}
+                  onToggleSimulation={() => toggleNodeSimulation(selectedSupplier.id)}
+                />
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
       </div>
     </Layout>
     <Toaster position="top-right" theme="dark" richColors />

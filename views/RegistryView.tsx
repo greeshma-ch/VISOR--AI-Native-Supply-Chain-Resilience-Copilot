@@ -5,6 +5,7 @@ import { Supplier, RiskStatus, User } from '../types';
 import RiskBadge from '../components/RiskBadge';
 import { Search, ChevronRight, MapPin, Mail, Filter, Plus, X, Building2, Globe, Tag, ChevronDown, Zap } from 'lucide-react';
 import { toast } from 'sonner';
+import { motion, AnimatePresence } from 'motion/react';
 
 interface RegistryViewProps {
   user: User;
@@ -146,12 +147,14 @@ const RegistryView: React.FC<RegistryViewProps> = ({
             />
           </div>
           
-          <button 
+          <motion.button 
+            whileHover={{ scale: 1.05 }}
+            whileTap={{ scale: 0.95 }}
             onClick={() => setIsAddModalOpen(true)}
             className="h-11 px-6 bg-blue-600 text-white border border-blue-500/50 rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-blue-500 transition-all shadow-lg shadow-blue-900/20 flex items-center gap-2 whitespace-nowrap"
           >
             <Plus size={18} /> <span>Add Supplier</span>
-          </button>
+          </motion.button>
 
           {/* Sector Filters Dropdown */}
           <div className="relative group">
@@ -249,10 +252,11 @@ const RegistryView: React.FC<RegistryViewProps> = ({
             </thead>
             <tbody className="divide-y divide-white/[0.03]">
               {filteredSuppliers.map((supplier) => (
-                <tr 
+                <motion.tr 
+                  whileHover={{ backgroundColor: 'rgba(255,255,255,0.02)' }}
                   key={supplier.id}
                   onClick={() => onSelectSupplier(supplier)}
-                  className="hover:bg-white/[0.02] transition-colors cursor-pointer group"
+                  className="transition-colors cursor-pointer group"
                 >
                   <td className="px-8 py-6">
                     <div className="flex items-center gap-4">
@@ -290,7 +294,7 @@ const RegistryView: React.FC<RegistryViewProps> = ({
                       <ChevronRight size={18} />
                     </button>
                   </td>
-                </tr>
+                </motion.tr>
               ))}
             </tbody>
           </table>
