@@ -359,8 +359,8 @@ const RegistryView: React.FC<RegistryViewProps> = ({
                 <X size={20} />
               </button>
             </div>
-            <div className="overflow-y-auto no-scrollbar">
-              <form onSubmit={handleAddSupplier} className="p-6 sm:p-8 space-y-6">
+            <div className="overflow-y-auto custom-scrollbar">
+              <form onSubmit={handleAddSupplier} className="p-6 sm:p-8 space-y-6 pb-10">
                 <div className="space-y-2">
                   <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest flex items-center gap-2">
                     <Building2 size={16} /> Supplier Name

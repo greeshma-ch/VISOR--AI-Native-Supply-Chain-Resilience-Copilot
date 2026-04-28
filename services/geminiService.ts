@@ -76,22 +76,24 @@ export const generateSupplierIntelligence = async (supplier: Supplier, weatherDa
     : "Search for current weather.";
 
   const simulationContext = isSimulated 
-    ? `CRISIS MODE OVERRIDE: SCENARIO: Severe infrastructure severance at ${supplier.location}. Status: RISKY.`
-    : "";
+    ? `CRISIS MODE OVERRIDE: Severe infrastructure severance at ${supplier.location}. System Status: ${supplier.status}.`
+    : `System Resolution: ${supplier.status}.`;
 
   const disruptionContext = relevantDisruptions.length > 0 
     ? `REAL-TIME DISRUPTIONS: ${relevantDisruptions.map(d => `${d.title} (${d.severity})`).join(', ')}`
-    : "";
+    : "No major disruptions detected in official feeds.";
 
   const prompt = `Role: Strategic Logistics Analyst. Today is ${currentDate}.
-  Location: ${supplier.location}, Category: ${supplier.category}, Current Status: ${supplier.status}.
+  Location: ${supplier.location}, Category: ${supplier.category}, Resolved Risk Status: ${supplier.status}.
   
   ${simulationContext}
   ${weatherContext}
   ${disruptionContext}
 
-  Provide intelligence brief and impact assessment. Be concise. Speed is priority.
-  For impact assessment: Identify primary bottleneck, estimated delay, and strategic contingency action.`;
+  Task: Provide a high-fidelity intelligence brief and impact assessment that justifies the Resolved Risk Status of ${supplier.status}.
+  Ground your reasoning in the real-time weather and feed analysis above. 
+  If the status is CAUTION or RISKY, identify exactly which signal (weather or feed) triggered the escalation.
+  If STABLE, confirm baseline operational integrity despite local conditions.`;
 
   try {
     const response = await withRetry((modelName) => ai.models.generateContent({

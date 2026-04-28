@@ -62,13 +62,19 @@ const IntelligenceView: React.FC<IntelligenceViewProps> = ({
   const [impactLoading, setImpactLoading] = useState(false);
   const [impactError, setImpactError] = useState(false);
 
-  // Filter relevant disruptions for grounding - memoized for performance
+  // The supplier prop already comes from activeSuppliers in App.tsx, which is reconciled
+  const resolvedStatus = supplier.status;
+  
   const relevantDisruptions = React.useMemo(() => 
-    disruptions.filter(d => 
-      d.impactedSuppliers.includes(supplier.id) || 
-      d.impactedSuppliers.includes(supplier.name) ||
-      (d.location && supplier.location.toLowerCase().includes(d.location.toLowerCase()))
-    ), [disruptions, supplier.id, supplier.name, supplier.location]
+    disruptions.filter(d => {
+      if (!d.location) return false;
+      const sLoc = supplier.location.toLowerCase();
+      const dLoc = d.location.toLowerCase();
+      const supplierParts = sLoc.split(',').map(p => p.trim());
+      const disruptionParts = dLoc.split(',').map(p => p.trim());
+      return supplierParts.some(rp => disruptionParts.some(dp => dp.includes(rp) || rp.includes(dp)));
+    }),
+    [supplier.location, disruptions]
   );
 
   // Background Fetching - optimized with parallel execution and bundled AI calls
@@ -168,7 +174,7 @@ const IntelligenceView: React.FC<IntelligenceViewProps> = ({
           <div className="h-10 w-[1px] bg-white/5 mx-2 hidden sm:block" />
           <div className="flex flex-col items-end">
             <span className="text-[8px] font-black text-slate-500 uppercase tracking-widest mb-1">Node Integrity</span>
-            <RiskBadge status={isSimulated ? RiskStatus.STABLE : supplier.status} size="md" />
+            <RiskBadge status={resolvedStatus} size="md" />
           </div>
           <AnimatePresence>
             {loading ? (
@@ -191,8 +197,8 @@ const IntelligenceView: React.FC<IntelligenceViewProps> = ({
               >
                 <span className="text-[8px] font-black text-blue-500 uppercase tracking-widest mb-1">{isSimulated ? 'Strategic Threat Level' : 'AI Assessment'}</span>
                 <div className="flex items-center gap-2">
-                  <RiskBadge status={isSimulated ? RiskStatus.RISKY : brief.suggestedStatus} size="md" />
-                  {brief.suggestedStatus === supplier.status ? (
+                  <RiskBadge status={brief.suggestedStatus} size="md" />
+                  {brief.suggestedStatus === resolvedStatus ? (
                     <div className="flex items-center gap-1 text-[8px] font-black text-emerald-500 uppercase tracking-widest bg-emerald-500/10 px-2 py-1 rounded-md border border-emerald-500/20">
                       <Check size={10} /> Synchronized
                     </div>

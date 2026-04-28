@@ -2,6 +2,7 @@
 import React from 'react';
 import { User, Disruption, Supplier } from '../types';
 import { Bell, Cloud, Ship, Zap, Info, Clock, ExternalLink, Archive, Sun, CloudRain, CloudLightning, CloudSnow, Wind, Lock } from 'lucide-react';
+import { resolveSupplierStatus } from '../lib/riskEngine';
 import { toast } from 'sonner';
 import { motion, AnimatePresence } from 'motion/react';
 import Skeleton from '../components/Skeleton';
@@ -12,10 +13,11 @@ interface FeedViewProps {
   onNavigateToResources: (title: string, sources?: { title: string; uri: string }[]) => void;
   disruptions: Disruption[];
   suppliers: Supplier[];
+  simulatedRiskyNodes?: string[];
   isRefreshing?: boolean;
 }
 
-const FeedView: React.FC<FeedViewProps> = ({ user, categoryFilter, onNavigateToResources, disruptions, suppliers, isRefreshing }) => {
+const FeedView: React.FC<FeedViewProps> = ({ user, categoryFilter, onNavigateToResources, disruptions, suppliers, simulatedRiskyNodes = [], isRefreshing }) => {
   const getRelativeTime = (timestamp: string) => {
     const now = new Date();
     const then = new Date(timestamp);
@@ -55,31 +57,39 @@ const FeedView: React.FC<FeedViewProps> = ({ user, categoryFilter, onNavigateToR
   const finalFeed = React.useMemo(() => {
     const relevantSuppliers = suppliers.filter(s => categoryFilter === 'ALL' || s.category === categoryFilter);
 
-    const regionMatch = (s: Supplier, d: Disruption) => {
-      if (!d.location) return false;
-      const supplierParts = s.location.toLowerCase().split(',').map(p => p.trim());
-      const disruptionParts = d.location.toLowerCase().split(',').map(p => p.trim());
-      return supplierParts.some(rp => disruptionParts.some(dp => dp.includes(rp) || rp.includes(dp)));
-    };
-
     return relevantSuppliers.map(s => {
-      // Find most severe disruption matching this supplier
-      const matchingDisruptions = disruptions.filter(d => {
-        const isDirectlyImpacted = d.impactedSuppliers.includes(s.id) || d.impactedSuppliers.includes(s.name);
-        return (isDirectlyImpacted || regionMatch(s, d)) && (categoryFilter === 'ALL' || d.type === categoryFilter || d.type === 'Logistics' || d.type === 'Weather');
-      });
+      const isSimulated = simulatedRiskyNodes.includes(s.id);
+      const { status, matchingDisruptions } = resolveSupplierStatus(s, disruptions, simulatedRiskyNodes);
+      
+      const filteredDisruptions = matchingDisruptions.filter(d => 
+        categoryFilter === 'ALL' || d.type === categoryFilter || d.type === 'Logistics' || d.type === 'Weather'
+      );
 
-      if (matchingDisruptions.length > 0) {
-        // Pick highest severity
+      if (isSimulated) {
+        return {
+          id: `sim-${s.id}`,
+          title: `CRITICAL ALERT: Simulation Override`,
+          type: 'Strike' as const, // Use Zap icon
+          severity: 'High' as const,
+          location: s.location,
+          timestamp: new Date().toISOString(),
+          summary: `System-level crisis simulation triggered for ${s.name}. All operational telemetry is currently bypassed to evaluate emergency response protocols and alternative node viability.`,
+          impactedSuppliers: [s.id],
+          verificationStatus: 'verified' as const
+        };
+      }
+
+      if (filteredDisruptions.length > 0) {
+        // Pick highest severity from relevant ones
         const severityMap = { 'High': 3, 'Medium': 2, 'Low': 1 };
-        return matchingDisruptions.reduce((prev, curr) => {
+        return filteredDisruptions.reduce((prev, curr) => {
           const pVal = severityMap[prev.severity as keyof typeof severityMap] || 0;
           const cVal = severityMap[curr.severity as keyof typeof severityMap] || 0;
           return cVal > pVal ? curr : prev;
         });
       }
 
-      // Generate stability signal if no disruptions
+      // Generate stability signal if no disruptions match the resolution engine
       return {
         id: `stable-${s.id}`,
         title: `Node Operational: ${s.name}`,

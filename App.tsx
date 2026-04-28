@@ -4,6 +4,7 @@ import { View, Supplier, User, RiskStatus, Disruption } from './types';
 import { MOCK_DISRUPTIONS, MOCK_SUPPLIERS } from './constants';
 import { fetchWeatherAlerts } from './services/weatherService';
 import { generateGlobalRiskSignals } from './services/geminiService';
+import { resolveSupplierStatus } from './lib/riskEngine';
 import Layout from './components/Layout';
 import AuthView from './views/AuthView';
 import DashboardView from './views/DashboardView';
@@ -76,57 +77,29 @@ const App: React.FC = () => {
     localStorage.setItem('vs_suppliers', JSON.stringify(suppliers));
   }, [suppliers]);
   const [simulatedRiskyNodes, setSimulatedRiskyNodes] = useState<string[]>([]);
+  const [manualStatusOverrides, setManualStatusOverrides] = useState<Record<string, RiskStatus>>(() => {
+    const saved = localStorage.getItem('vs_manual_overrides');
+    return saved ? JSON.parse(saved) : {};
+  });
+
+  useEffect(() => {
+    localStorage.setItem('vs_manual_overrides', JSON.stringify(manualStatusOverrides));
+  }, [manualStatusOverrides]);
+
   const [disruptions, setDisruptions] = useState<Disruption[]>(MOCK_DISRUPTIONS);
   const [resourceContext, setResourceContext] = useState<{ title: string; sources: { title: string; uri: string }[] } | null>(null);
   const [isRefreshing, setIsRefreshing] = useState(false);
 
   const activeSuppliers = React.useMemo(() => {
-    // Optimization: Create a map for faster lookup if disruptions are numerous
-    const supplierImpactMap = new Map<string, Disruption[]>();
-    
-    disruptions.forEach(d => {
-      suppliers.forEach(s => {
-        const isDirectlyImpacted = d.impactedSuppliers.includes(s.id) || d.impactedSuppliers.includes(s.name);
-        let isRegionImpacted = false;
-        
-        if (!isDirectlyImpacted && d.location) {
-          const supplierParts = s.location.toLowerCase().split(',').map(p => p.trim());
-          const disruptionParts = d.location.toLowerCase().split(',').map(p => p.trim());
-          isRegionImpacted = supplierParts.some(rp => disruptionParts.some(dp => dp.includes(rp) || rp.includes(dp)));
-        }
-
-        if (isDirectlyImpacted || isRegionImpacted) {
-          const current = supplierImpactMap.get(s.id) || [];
-          current.push(d);
-          supplierImpactMap.set(s.id, current);
-        }
-      });
-    });
-
     return suppliers.map(s => {
-      // Priority 1: Simulation
-      if (simulatedRiskyNodes.includes(s.id)) {
-        return { ...s, status: RiskStatus.RISKY };
+      // Manual overrides from AI/User sync take highest precedence
+      if (manualStatusOverrides[s.id]) {
+        return { ...s, status: manualStatusOverrides[s.id] };
       }
-
-      // Priority 2: Real-time disruptions from pre-calculated map
-      const relevantDisruptions = supplierImpactMap.get(s.id) || [];
-
-      if (relevantDisruptions.length > 0) {
-        const severityMap = { 'High': 3, 'Medium': 2, 'Low': 1 };
-        const highestSeverityObj = relevantDisruptions.reduce((prev, curr) => {
-          const currVal = severityMap[curr.severity as keyof typeof severityMap] || 0;
-          const prevVal = severityMap[prev.severity as keyof typeof severityMap] || 0;
-          return currVal > prevVal ? curr : prev;
-        });
-
-        if (highestSeverityObj.severity === 'High') return { ...s, status: RiskStatus.RISKY };
-        if (highestSeverityObj.severity === 'Medium') return { ...s, status: RiskStatus.CAUTION };
-      }
-
-      return { ...s, status: RiskStatus.STABLE };
+      const { status } = resolveSupplierStatus(s, disruptions, simulatedRiskyNodes);
+      return { ...s, status };
     });
-  }, [suppliers, simulatedRiskyNodes, disruptions]);
+  }, [suppliers, simulatedRiskyNodes, disruptions, manualStatusOverrides]);
 
   const isInitialMount = React.useRef(true);
 
@@ -208,6 +181,7 @@ const App: React.FC = () => {
   };
 
   const updateSupplierStatus = (supplierId: string, newStatus: RiskStatus) => {
+    setManualStatusOverrides(prev => ({ ...prev, [supplierId]: newStatus }));
     setSuppliers(prev => prev.map(s => s.id === supplierId ? { ...s, status: newStatus, lastUpdated: new Date().toISOString() } : s));
     if (selectedSupplier?.id === supplierId) {
       setSelectedSupplier(prev => prev ? { ...prev, status: newStatus, lastUpdated: new Date().toISOString() } : null);
@@ -304,6 +278,7 @@ const App: React.FC = () => {
             }} 
             disruptions={disruptions} 
             suppliers={activeSuppliers} 
+            simulatedRiskyNodes={simulatedRiskyNodes}
             isRefreshing={isRefreshing}
           />
         );

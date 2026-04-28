@@ -109,12 +109,14 @@ const DashboardView: React.FC<DashboardViewProps> = ({
 
   const filteredDisruptions = React.useMemo(() => disruptions.filter(d => {
     const matchesCategory = categoryFilter === 'ALL' || d.type === categoryFilter || d.type === 'Logistics' || d.type === 'Weather';
-    // Node-Centric Filtering: Only show disruptions in regions where we have active suppliers
+    
+    // Use part-based matching consistent with resolveSupplierStatus
     const matchesRegion = activeRegions.some(region => {
       const regionParts = region.toLowerCase().split(',').map(p => p.trim());
       const disruptionParts = d.location.toLowerCase().split(',').map(p => p.trim());
       return regionParts.some(rp => disruptionParts.some(dp => dp.includes(rp) || rp.includes(dp)));
     });
+    
     return matchesCategory && matchesRegion;
   }), [disruptions, categoryFilter, activeRegions]);
 

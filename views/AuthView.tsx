@@ -47,8 +47,8 @@ const AuthView: React.FC<AuthViewProps> = ({ onComplete }) => {
   };
 
   return (
-    <div className="min-h-screen bg-[#070b14] flex items-center justify-center p-2 sm:p-4">
-      <div className="w-full max-w-md bg-[#0a0f1c] rounded-[2rem] shadow-2xl border border-white/5 overflow-hidden animate-in zoom-in-95 duration-500 my-4">
+    <div className="min-h-screen bg-[#070b14] flex items-center justify-center p-2 sm:p-4 overflow-y-auto custom-scrollbar">
+      <div className="w-full max-w-md bg-[#0a0f1c] rounded-[2rem] shadow-2xl border border-white/5 overflow-hidden animate-in zoom-in-95 duration-500 my-auto">
         <div className="p-6 sm:p-8 text-center bg-blue-600/5 border-b border-white/5">
           <Logo className="justify-center mb-1" />
           <p className="text-blue-500/60 mt-1 text-[10px] font-black uppercase tracking-[0.3em]">AI-Native Supply Chain Resilience Copilot</p>
