@@ -12,30 +12,44 @@ const impactCache = new Map<string, { data: ImpactAnalysis; timestamp: number }>
 const CACHE_TTL = 15 * 60 * 1000; // 15 minutes
 const GLOBAL_CACHE_TTL = 30 * 60 * 1000; // 30 minutes for global signals
 
-const withRetry = async <T>(fn: () => Promise<T>, retries = 3, delay = 2000): Promise<T> => {
-  try {
-    return await fn();
-  } catch (error: any) {
-    const errorString = error?.message || JSON.stringify(error) || '';
-    const isQuotaError = errorString.includes('429') || errorString.includes('RESOURCE_EXHAUSTED') || errorString.includes('quota');
-    const isServiceUnavailable = errorString.includes('503') || errorString.includes('high demand') || errorString.includes('UNAVAILABLE');
-    const isTransientError = errorString.includes('500') || errorString.includes('Rpc failed') || errorString.includes('xhr error') || errorString.includes('fetch');
-    
-    if ((isQuotaError || isTransientError || isServiceUnavailable) && retries > 0) {
-      let errorType = 'Transient/RPC Error';
-      if (isQuotaError) errorType = 'Quota Exceeded';
-      if (isServiceUnavailable) errorType = 'High Demand (503)';
+const withRetry = async <T>(fn: (modelName: string) => Promise<T>, retries = 3, delay = 2000): Promise<T> => {
+  const models = ["gemini-3-flash-preview", "gemini-3.1-pro-preview"];
+  let modelIndex = 0;
 
-      // Jittered backoff for better recovery
-      const jitter = Math.random() * 500;
-      const currentDelay = (isQuotaError || isServiceUnavailable) ? (delay * 2) + jitter : delay + jitter;
+  const execute = async (remainingRetries: number, currentDelay: number): Promise<T> => {
+    const currentModel = models[modelIndex];
+    try {
+      return await fn(currentModel);
+    } catch (error: any) {
+      const errorString = error?.message || JSON.stringify(error) || '';
+      const isQuotaError = errorString.includes('429') || errorString.includes('RESOURCE_EXHAUSTED') || errorString.includes('quota');
+      const isServiceUnavailable = errorString.includes('503') || errorString.includes('high demand') || errorString.includes('UNAVAILABLE');
+      const isTransientError = errorString.includes('500') || errorString.includes('Rpc failed') || errorString.includes('xhr error') || errorString.includes('fetch');
+      const isModelNotFoundError = errorString.includes('404') || errorString.includes('not found');
       
-      console.warn(`Gemini Service ${errorType}. Retrying in ${Math.round(currentDelay)}ms... (${retries} retries left)`);
-      await new Promise(resolve => setTimeout(resolve, currentDelay));
-      return withRetry(fn, retries - 1, (delay * 1.5) + jitter);
+      if ((isQuotaError || isTransientError || isServiceUnavailable || isModelNotFoundError) && remainingRetries > 0) {
+        let errorType = 'Transient/RPC Error';
+        if (isQuotaError) errorType = 'Quota Exceeded';
+        if (isServiceUnavailable) errorType = 'High Demand (503)';
+        if (isModelNotFoundError) errorType = 'Model Not Found (404)';
+
+        // Rotate model on 503 or 404
+        if (isServiceUnavailable || isModelNotFoundError) {
+          modelIndex = (modelIndex + 1) % models.length;
+        }
+
+        const jitter = Math.random() * 500;
+        const nextDelay = (isQuotaError || isServiceUnavailable) ? (currentDelay * 2) + jitter : currentDelay + jitter;
+        
+        console.warn(`Gemini Service ${errorType}. Switched to ${models[modelIndex]}. Retrying in ${Math.round(nextDelay)}ms... (${remainingRetries} retries left)`);
+        await new Promise(resolve => setTimeout(resolve, nextDelay));
+        return execute(remainingRetries - 1, nextDelay * 1.5);
+      }
+      throw error;
     }
-    throw error;
-  }
+  };
+
+  return execute(retries, delay);
 };
 
 export const generateSupplierIntelligence = async (supplier: Supplier, weatherData?: any, isSimulated: boolean = false, relevantDisruptions: Disruption[] = []): Promise<IntelligenceBrief> => {
@@ -87,8 +101,8 @@ export const generateSupplierIntelligence = async (supplier: Supplier, weatherDa
   4. Speed is priority. Max 2 sentence analysis.`}`;
 
   try {
-    const response = await withRetry(() => ai.models.generateContent({
-      model: "gemini-3-flash-preview",
+    const response = await withRetry((modelName) => ai.models.generateContent({
+      model: modelName,
       contents: prompt,
       config: {
         tools: [{ googleSearch: {} }],
@@ -200,8 +214,8 @@ export const generateGlobalRiskSignals = async (user: User, suppliers: Supplier[
   Output JSON format.`;
 
   try {
-    const response = await withRetry(() => ai.models.generateContent({
-      model: "gemini-3-flash-preview",
+    const response = await withRetry((modelName) => ai.models.generateContent({
+      model: modelName,
       contents: prompt,
       config: {
         tools: [{ googleSearch: {} }],
@@ -285,8 +299,8 @@ export const generateImpactAnalysis = async (supplier: Supplier, isSimulated: bo
        3. Strategic action must be specific to the identified bottleneck.`;
 
   try {
-    const result = await withRetry(() => ai.models.generateContent({
-      model: "gemini-3-flash-preview",
+    const result = await withRetry((modelName) => ai.models.generateContent({
+      model: modelName,
       contents: prompt,
       config: {
         tools: [{ googleSearch: {} }],
@@ -324,13 +338,13 @@ export const groundMapLocation = async (supplier: Supplier) => {
   const prompt = `Grounding Task: Verify infrastructure and logistics risks around ${supplier.name} at ${supplier.location}. Identify nearby ports/airports.`;
 
   try {
-    const response = await ai.models.generateContent({
-      model: "gemini-3-flash-preview",
+    const response = await withRetry((modelName) => ai.models.generateContent({
+      model: modelName,
       contents: prompt,
       config: {
         tools: [{ googleMaps: {} }, { googleSearch: {} }]
       },
-    } as any);
+    } as any));
 
     const text = response.text || "";
     const chunks = response.candidates?.[0]?.groundingMetadata?.groundingChunks || [];

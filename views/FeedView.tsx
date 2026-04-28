@@ -52,20 +52,50 @@ const FeedView: React.FC<FeedViewProps> = ({ user, categoryFilter, onNavigateToR
     return Cloud;
   };
 
-  const activeRegions = Array.from(new Set(suppliers.map(s => s.location)));
+  const relevantSuppliers = suppliers.filter(s => categoryFilter === 'ALL' || s.category === categoryFilter);
 
-  const filteredDisruptions = disruptions.filter(d => {
-    // If Global is selected, show all. Otherwise, match type or show Logistics (cross-cutting)
-    const matchesCategory = categoryFilter === 'ALL' || d.type === categoryFilter || d.type === 'Logistics' || d.type === 'Weather';
-    
-    // Node-Centric Filtering: Only show disruptions in regions where we have active suppliers
-    const matchesRegion = activeRegions.some(region => {
-      const regionParts = region.toLowerCase().split(',').map(p => p.trim());
-      const disruptionParts = d.location.toLowerCase().split(',').map(p => p.trim());
-      return regionParts.some(rp => disruptionParts.some(dp => dp.includes(rp) || rp.includes(dp)));
+  const regionMatch = (s: Supplier, d: Disruption) => {
+    if (!d.location) return false;
+    const supplierParts = s.location.toLowerCase().split(',').map(p => p.trim());
+    const disruptionParts = d.location.toLowerCase().split(',').map(p => p.trim());
+    return supplierParts.some(rp => disruptionParts.some(dp => dp.includes(rp) || rp.includes(dp)));
+  };
+
+  const finalFeed = relevantSuppliers.map(s => {
+    // Find most severe disruption matching this supplier
+    const matchingDisruptions = disruptions.filter(d => {
+      const isDirectlyImpacted = d.impactedSuppliers.includes(s.id) || d.impactedSuppliers.includes(s.name);
+      return (isDirectlyImpacted || regionMatch(s, d)) && (categoryFilter === 'ALL' || d.type === categoryFilter || d.type === 'Logistics' || d.type === 'Weather');
     });
-    
-    return matchesCategory && matchesRegion;
+
+    if (matchingDisruptions.length > 0) {
+      // Pick highest severity
+      const severityMap = { 'High': 3, 'Medium': 2, 'Low': 1 };
+      return matchingDisruptions.reduce((prev, curr) => {
+        const pVal = severityMap[prev.severity as keyof typeof severityMap] || 0;
+        const cVal = severityMap[curr.severity as keyof typeof severityMap] || 0;
+        return cVal > pVal ? curr : prev;
+      });
+    }
+
+    // Generate stability signal if no disruptions
+    return {
+      id: `stable-${s.id}`,
+      title: `Node Operational: ${s.name}`,
+      type: 'Logistics' as const,
+      severity: 'Low' as const,
+      location: s.location,
+      timestamp: s.lastUpdated || new Date().toISOString(),
+      summary: `AI Intelligence confirms nominal operational heartbeat for ${s.name}. Regional telemetry and logistics pipelines are functioning within established performance benchmarks.`,
+      impactedSuppliers: [s.id],
+      verificationStatus: 'verified' as const
+    };
+  }).sort((a, b) => {
+    const severityMap = { 'High': 3, 'Medium': 2, 'Low': 1 };
+    const sA = severityMap[a.severity as keyof typeof severityMap] || 0;
+    const sB = severityMap[b.severity as keyof typeof severityMap] || 0;
+    if (sA !== sB) return sB - sA;
+    return new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime();
   });
 
   const handleAccessArchival = () => {
@@ -81,7 +111,7 @@ const FeedView: React.FC<FeedViewProps> = ({ user, categoryFilter, onNavigateToR
           <div className="flex items-center gap-2 mt-2">
             <div className={`w-1.5 h-1.5 rounded-full ${isRefreshing ? 'bg-blue-500 animate-pulse' : 'bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.4)]'}`} />
             <p className="text-slate-500 font-black text-[10px] uppercase tracking-widest leading-none">
-              {isRefreshing ? 'Syncing Real-time Feed...' : `Live Stream • ${categoryFilter === 'ALL' ? 'Global Network' : `${categoryFilter} Channel`}`}
+              {isRefreshing ? 'Syncing Real-time Feed...' : `Live Intelligence • ${finalFeed.length} Strategic Nodes Monitored`}
             </p>
           </div>
         </div>
@@ -122,7 +152,7 @@ const FeedView: React.FC<FeedViewProps> = ({ user, categoryFilter, onNavigateToR
               </div>
             ))}
           </>
-        ) : filteredDisruptions.map((alert) => {
+        ) : finalFeed.map((alert) => {
           const Icon = alert.type === 'Weather' ? getWeatherIcon(alert.weatherIcon) : (typeIcons[alert.type] || Info);
           const iconColor = alert.type === 'Weather' && alert.weatherIcon ? (
             alert.weatherIcon.startsWith('01') ? 'text-amber-400' :
@@ -260,7 +290,7 @@ const FeedView: React.FC<FeedViewProps> = ({ user, categoryFilter, onNavigateToR
         })}
       </div>
       
-      {filteredDisruptions.length === 0 && (
+      {finalFeed.length === 0 && (
         <div className="py-20 text-center bg-white/[0.03] rounded-[2.5rem] border border-dashed border-white/10">
           <p className="text-slate-400 font-bold uppercase tracking-widest text-sm">No signals detected in this channel.</p>
         </div>

@@ -117,7 +117,7 @@ const DashboardView: React.FC<DashboardViewProps> = ({
     <div className="space-y-6 sm:space-y-8 lg:space-y-10 animate-in fade-in duration-700">
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-end gap-6">
         <div>
-          <h2 className="text-3xl sm:text-4xl font-black text-white tracking-tight uppercase">Predictive Resilience Copilot</h2>
+          <h2 className="text-3xl sm:text-4xl font-black text-white tracking-tight uppercase">AI-Native Supply Chain Resilience Copilot</h2>
           <div className="flex items-center gap-3 mt-2">
             <div className={`flex items-center gap-1.5 px-2 py-0.5 rounded-md border text-[9px] font-black uppercase tracking-widest ${isRefreshing ? 'bg-blue-500/10 border-blue-500/20 text-blue-400' : 'bg-emerald-500/10 border-emerald-500/20 text-emerald-500'}`}>
               <Activity size={10} className={isRefreshing ? 'animate-pulse' : ''} />

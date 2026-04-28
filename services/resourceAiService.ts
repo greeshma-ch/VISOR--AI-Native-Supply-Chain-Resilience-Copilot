@@ -2,21 +2,38 @@ import { GoogleGenAI, Type } from "@google/genai";
 
 const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY || '' });
 
-const withRetry = async <T>(fn: () => Promise<T>, retries = 3, delay = 2000): Promise<T> => {
-  try {
-    return await fn();
-  } catch (error: any) {
-    const isQuotaError = error?.message?.includes('429') || error?.status === 'RESOURCE_EXHAUSTED';
-    const isTransientError = error?.message?.includes('500') || error?.message?.includes('Rpc failed') || error?.message?.includes('xhr error');
-    
-    if ((isQuotaError || isTransientError) && retries > 0) {
-      const errorType = isQuotaError ? 'Quota Exceeded' : 'Transient Server Error';
-      console.warn(`Gemini ${errorType}. Retrying in ${delay}ms... (${retries} retries left)`);
-      await new Promise(resolve => setTimeout(resolve, delay));
-      return withRetry(fn, retries - 1, delay * 2);
+const withRetry = async <T>(fn: (modelName: string) => Promise<T>, retries = 3, delay = 2000): Promise<T> => {
+  const models = ["gemini-3-flash-preview", "gemini-3.1-pro-preview"];
+  let modelIndex = 0;
+
+  const execute = async (remainingRetries: number, currentDelay: number): Promise<T> => {
+    const currentModel = models[modelIndex];
+    try {
+      return await fn(currentModel);
+    } catch (error: any) {
+      const errorString = error?.message || JSON.stringify(error) || '';
+      const isQuotaError = errorString.includes('429') || errorString.includes('RESOURCE_EXHAUSTED') || errorString.includes('quota');
+      const isServiceUnavailable = errorString.includes('503') || errorString.includes('high demand') || errorString.includes('UNAVAILABLE');
+      const isTransientError = errorString.includes('500') || errorString.includes('Rpc failed') || errorString.includes('xhr error') || errorString.includes('fetch');
+      const isModelNotFoundError = errorString.includes('404') || errorString.includes('not found');
+      
+      if ((isQuotaError || isTransientError || isServiceUnavailable || isModelNotFoundError) && remainingRetries > 0) {
+        if (isServiceUnavailable || isModelNotFoundError) {
+          modelIndex = (modelIndex + 1) % models.length;
+        }
+
+        const jitter = Math.random() * 500;
+        const nextDelay = (isQuotaError || isServiceUnavailable) ? (currentDelay * 2) + jitter : currentDelay + jitter;
+        
+        console.warn(`Gemini Resource Service Error. Switched to ${models[modelIndex]}. Retrying in ${Math.round(nextDelay)}ms...`);
+        await new Promise(resolve => setTimeout(resolve, nextDelay));
+        return execute(remainingRetries - 1, nextDelay * 1.5);
+      }
+      throw error;
     }
-    throw error;
-  }
+  };
+
+  return execute(retries, delay);
 };
 
 export interface ResourceBriefing {
@@ -44,8 +61,8 @@ export const generateResourceBriefing = async (title: string, location: string, 
     : `CONTEXT: No active disruptions reported for this node. This is a stability update and operational health check. Report "Operational Stability: ${location}" as the current status.`;
 
   try {
-    const response = await withRetry(() => ai.models.generateContent({
-      model: "gemini-3-flash-preview",
+    const response = await withRetry((modelName) => ai.models.generateContent({
+      model: modelName,
       contents: `Role: Supply Chain Intelligence Analyst. Today is ${currentDate}.
       Generate a professional, concise intelligence briefing for a ${type} titled "${title}" in "${location}". 
       
@@ -91,8 +108,8 @@ export const generateResourceDocument = async (title: string, location: string, 
     : `CONTEXT: No active disruptions. This is a Stability Handbook and Health Check for the ${location} node. Ensure the Risk Assessment section reflects high stability and 'No Probable Disruption'.`;
 
   try {
-    const response = await withRetry(() => ai.models.generateContent({
-      model: "gemini-3-flash-preview",
+    const response = await withRetry((modelName) => ai.models.generateContent({
+      model: modelName,
       contents: `Role: Senior Risk Architect. Today is ${currentDate}.
       Generate a professional intelligence document for a ${type} titled "${title}" in "${location}". 
       

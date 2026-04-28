@@ -352,69 +352,71 @@ const RegistryView: React.FC<RegistryViewProps> = ({
       {/* Add Supplier Modal Overlay */}
       {isAddModalOpen && (
         <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-md">
-          <div className="w-full max-w-lg bg-[#0a0f1c] rounded-3xl border border-white/10 shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200">
-            <div className="p-8 border-b border-white/5 flex items-center justify-between">
+          <div className="w-full max-w-lg bg-[#0a0f1c] rounded-3xl border border-white/10 shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200 flex flex-col max-h-[90vh]">
+            <div className="p-6 sm:p-8 border-b border-white/5 flex items-center justify-between flex-shrink-0">
               <h3 className="text-xl font-bold text-white">Register New Supplier</h3>
               <button onClick={() => setIsAddModalOpen(false)} className="p-2 hover:bg-white/5 rounded-xl text-slate-500 transition-colors">
                 <X size={20} />
               </button>
             </div>
-            <form onSubmit={handleAddSupplier} className="p-8 space-y-6">
-              <div className="space-y-2">
-                <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest flex items-center gap-2">
-                  <Building2 size={16} /> Supplier Name
-                </label>
-                <input required name="name" type="text" placeholder="e.g. Quantum Components Ltd" className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white outline-none focus:ring-2 focus:ring-blue-600 transition-all" />
-              </div>
-              <div className="grid grid-cols-2 gap-4">
+            <div className="overflow-y-auto no-scrollbar">
+              <form onSubmit={handleAddSupplier} className="p-6 sm:p-8 space-y-6">
                 <div className="space-y-2">
                   <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest flex items-center gap-2">
-                    <Globe size={16} /> Region
+                    <Building2 size={16} /> Supplier Name
                   </label>
-                  <div className="relative">
-                    <input 
-                      list="registry-hubs"
-                      required 
-                      name="location"
-                      value={newSupplierLocation}
-                      onChange={(e) => setNewSupplierLocation(e.target.value)}
-                      placeholder="Search global hub..." 
-                      className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white outline-none focus:ring-2 focus:ring-blue-600 transition-all text-xs" 
-                    />
-                    <datalist id="registry-hubs">
-                      {GLOBAL_HUBS.map((h, i) => (
-                        <option key={i} value={h.name} />
-                      ))}
-                    </datalist>
-                  </div>
+                  <input required name="name" type="text" placeholder="e.g. Quantum Components Ltd" className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white outline-none focus:ring-2 focus:ring-blue-600 transition-all" />
                 </div>
-                <div className="space-y-2">
-                  <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest flex items-center gap-2">
-                    <Tag size={16} /> Asset Class
-                  </label>
-                  <div className="relative">
-                    <select required name="category" defaultValue="" className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white outline-none focus:ring-2 focus:ring-blue-600 transition-all appearance-none cursor-pointer text-xs">
-                      <option value="" disabled className="bg-[#0a0f1c]">Select Class</option>
-                      {CATEGORIES.map(c => (
-                        <option key={c} value={c} className="bg-[#0a0f1c]">{c}</option>
-                      ))}
-                    </select>
-                    <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-slate-500">
-                      <ChevronRight size={14} className="rotate-90" />
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest flex items-center gap-2">
+                      <Globe size={16} /> Region
+                    </label>
+                    <div className="relative">
+                      <input 
+                        list="registry-hubs"
+                        required 
+                        name="location"
+                        value={newSupplierLocation}
+                        onChange={(e) => setNewSupplierLocation(e.target.value)}
+                        placeholder="Search global hub..." 
+                        className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white outline-none focus:ring-2 focus:ring-blue-600 transition-all text-xs" 
+                      />
+                      <datalist id="registry-hubs">
+                        {GLOBAL_HUBS.map((h, i) => (
+                          <option key={i} value={h.name} />
+                        ))}
+                      </datalist>
+                    </div>
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest flex items-center gap-2">
+                      <Tag size={16} /> Asset Class
+                    </label>
+                    <div className="relative">
+                      <select required name="category" defaultValue="" className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white outline-none focus:ring-2 focus:ring-blue-600 transition-all appearance-none cursor-pointer text-xs">
+                        <option value="" disabled className="bg-[#0a0f1c]">Select Class</option>
+                        {CATEGORIES.map(c => (
+                          <option key={c} value={c} className="bg-[#0a0f1c]">{c}</option>
+                        ))}
+                      </select>
+                      <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-slate-500">
+                        <ChevronRight size={14} className="rotate-90" />
+                      </div>
                     </div>
                   </div>
                 </div>
-              </div>
-              <div className="space-y-2">
-                <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest flex items-center gap-2">
-                  <Mail size={16} /> Operational Contact
-                </label>
-                <input name="email" type="email" placeholder="ops@supplier.com" className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white outline-none focus:ring-2 focus:ring-blue-600 transition-all" />
-              </div>
-              <button type="submit" className="w-full py-4 bg-blue-600 hover:bg-blue-500 text-white font-black uppercase tracking-widest text-xs rounded-2xl shadow-xl transition-all">
-                Finalize Node Registry
-              </button>
-            </form>
+                <div className="space-y-2">
+                  <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest flex items-center gap-2">
+                    <Mail size={16} /> Operational Contact
+                  </label>
+                  <input name="email" type="email" placeholder="ops@supplier.com" className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white outline-none focus:ring-2 focus:ring-blue-600 transition-all" />
+                </div>
+                <button type="submit" className="w-full py-4 bg-blue-600 hover:bg-blue-500 text-white font-black uppercase tracking-widest text-xs rounded-2xl shadow-xl transition-all">
+                  Finalize Node Registry
+                </button>
+              </form>
+            </div>
           </div>
         </div>
       )}
