@@ -1,4 +1,4 @@
-# 🛰️ VISOR — AI-Native Supply Chain Risk Monitoring System
+# 🛰️ VISOR — AI-Native Supply Chain Resilience Copilot
 
 VISOR is an AI-powered supply chain risk monitoring application that analyzes real-time external signals and uses LLM-driven reasoning to proactively detect disruption risks, generate contextual alerts, and support faster operational decisions.
 
