@@ -158,25 +158,25 @@ Node Crisis Simulation
 
 ### Dashboard View
 
- <img width="48%" alt="Screenshot 2026-04-28 234334" src="https://github.com/user-attachments/assets/e9cbad01-864e-4c6d-a391-a5542b5ac6dc" />
+ <img width="48%" src="https://github.com/user-attachments/assets/e9cbad01-864e-4c6d-a391-a5542b5ac6dc" alt="Screenshot 2026-04-28 234334" />
 
   &nbsp;
-  <img width="48%" alt="Screenshot 2026-04-28 234359" src="https://github.com/user-attachments/assets/ba969a20-df72-49d0-b253-fbd594a6036c" />
+  <img width="48%" src="https://github.com/user-attachments/assets/ba969a20-df72-49d0-b253-fbd594a6036c" alt="Screenshot 2026-04-28 234359" />
   
 <br><br>
 
 ### Node Analysis and Crisis Mode
 
- <img width="48%" alt="Screenshot 2026-04-28 234417" src="https://github.com/user-attachments/assets/16d59f5a-b039-429d-89c9-19ebe14e75ed" />
+ <img width="48%" src="https://github.com/user-attachments/assets/16d59f5a-b039-429d-89c9-19ebe14e75ed" alt="Screenshot 2026-04-28 234417" />
 
   &nbsp;
-  <img width="48%" alt="Screenshot 2026-04-28 234442" src="https://github.com/user-attachments/assets/b66b9757-bb0e-4ed7-b196-5eda61e36233" />
+  <img width="48%" src="https://github.com/user-attachments/assets/b66b9757-bb0e-4ed7-b196-5eda61e36233" alt="Screenshot 2026-04-28 234442" />
 
 <br><br>
 
 ### Map Visualization
 
-<img width="65%" alt="Screenshot 2026-04-28 234456" src="https://github.com/user-attachments/assets/bd8c69e7-69f8-44ac-aefd-28bcbd0aca47" />
+<img width="65%" src="https://github.com/user-attachments/assets/bd8c69e7-69f8-44ac-aefd-28bcbd0aca47" alt="Screenshot 2026-04-28 234456" />
 
 
 </div>
