@@ -14,6 +14,7 @@ import {
 import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer } from 'recharts';
 import { motion, AnimatePresence } from 'motion/react';
 import Skeleton from '../components/Skeleton';
+import { isGeoMatch } from '../lib/riskEngine';
 
 interface DashboardViewProps {
   user: User;
@@ -110,12 +111,8 @@ const DashboardView: React.FC<DashboardViewProps> = ({
   const filteredDisruptions = React.useMemo(() => disruptions.filter(d => {
     const matchesCategory = categoryFilter === 'ALL' || d.type === categoryFilter || d.type === 'Logistics' || d.type === 'Weather';
     
-    // Use part-based matching consistent with resolveSupplierStatus
-    const matchesRegion = activeRegions.some(region => {
-      const regionParts = region.toLowerCase().split(',').map(p => p.trim());
-      const disruptionParts = d.location.toLowerCase().split(',').map(p => p.trim());
-      return regionParts.some(rp => disruptionParts.some(dp => dp.includes(rp) || rp.includes(dp)));
-    });
+    // Use robust matching consistent with resolveSupplierStatus
+    const matchesRegion = activeRegions.some(region => isGeoMatch(region, d.location));
     
     return matchesCategory && matchesRegion;
   }), [disruptions, categoryFilter, activeRegions]);
