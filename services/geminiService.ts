@@ -12,53 +12,8 @@ const impactCache = new Map<string, { data: ImpactAnalysis; timestamp: number }>
 const CACHE_TTL = 15 * 60 * 1000; // 15 minutes
 const GLOBAL_CACHE_TTL = 30 * 60 * 1000; // 30 minutes for global signals
 
-/**
- * Robust JSON extraction and parsing helper to handle inline citations,
- * markdown formatting blocks, and conversational noise from Gemini responses.
- */
-export const parseGeminiResponse = (text: string): any => {
-  if (!text) return {};
-  
-  // Clean markdown blocks if present
-  let cleaned = text.replace(/```json|```/g, '').trim();
-  
-  // Find first '{' or '[' and last '}' or ']'
-  const firstBrace = cleaned.indexOf('{');
-  const lastBrace = cleaned.lastIndexOf('}');
-  
-  if (firstBrace !== -1 && lastBrace !== -1 && lastBrace > firstBrace) {
-    cleaned = cleaned.substring(firstBrace, lastBrace + 1);
-  }
-  
-  // Remove potential inline citations inside JSON that break parsing
-  // e.g., "some text" [1] or "some text" [i] or "some text" [1],
-  cleaned = cleaned.replace(/"([^"\\]*(?:\\.[^"\\]*)*)"\s*\[\d+\]/g, '"$1"');
-  
-  // Remove footnotes from keys or outside of quoted values
-  cleaned = cleaned.replace(/:\s*\[\d+\]/g, ':');
-  cleaned = cleaned.replace(/,\s*\[\d+\]/g, ',');
-  cleaned = cleaned.replace(/\]\s*\[\d+\]/g, ']');
-  cleaned = cleaned.replace(/\}\s*\[\d+\]/g, '}');
-  
-  // Clean numbers with citations like: 15 [1]
-  cleaned = cleaned.replace(/:\s*(\d+)\s*\[\d+\]/g, ': $1');
-
-  try {
-    return JSON.parse(cleaned);
-  } catch (e) {
-    // Last-ditch sanitization: stripping any remaining [digits] entirely
-    try {
-      const strictClean = cleaned.replace(/\[\d+\]/g, '');
-      return JSON.parse(strictClean);
-    } catch (innerError) {
-      console.warn("Robust parser failed to parse cleaned text. Raw response was:", text);
-      throw e;
-    }
-  }
-};
-
 const withRetry = async <T>(fn: (modelName: string) => Promise<T>, retries = 7, delay = 3000): Promise<T> => {
-  const models = ["gemini-3.5-flash", "gemini-flash-latest", "gemini-3-flash-preview", "gemini-3.1-flash-lite-preview", "gemini-3.1-pro-preview"];
+  const models = ["gemini-flash-latest", "gemini-3-flash-preview", "gemini-1.5-flash", "gemini-3.1-flash-lite-preview", "gemini-3.1-pro-preview"];
   let modelIndex = 0;
   const failedModels = new Set<string>();
 
@@ -186,7 +141,7 @@ export const generateSupplierIntelligence = async (supplier: Supplier, weatherDa
     } as any));
 
     const jsonText = response.text || "{}";
-    const data = parseGeminiResponse(jsonText);
+    const data = JSON.parse(jsonText);
     
     const sources = response.candidates?.[0]?.groundingMetadata?.groundingChunks?.map((chunk: any) => ({
       title: chunk.web?.title || "Search Result",
@@ -299,25 +254,20 @@ export const generateGlobalRiskSignals = async (user: User, suppliers: Supplier[
     } as any));
 
     const jsonText = response.text || "{\"disruptions\": []}";
-    const data = parseGeminiResponse(jsonText);
+    const data = JSON.parse(jsonText);
     
-    // Ensure data.disruptions exists and is an array (robust validation)
-    const rawDisruptions = Array.isArray(data?.disruptions) ? data.disruptions : [];
-
-    const result = rawDisruptions.map((d: any) => ({
+    const result = data.disruptions.map((d: any) => ({
       ...d,
-      impactedSuppliers: Array.isArray(d.impactedSuppliers) 
-        ? d.impactedSuppliers.map((name: string) => {
-            const found = suppliers.find(s => s.name.toLowerCase() === name.toLowerCase());
-            return found ? found.id : name;
-          })
-        : []
+      impactedSuppliers: d.impactedSuppliers.map((name: string) => {
+        const found = suppliers.find(s => s.name.toLowerCase() === name.toLowerCase());
+        return found ? found.id : name;
+      })
     }));
 
     globalRiskCache.set(cacheKey, { data: result, timestamp: Date.now() });
     return result;
-  } catch (error: any) {
-    console.warn("Global Risk Signals: Failed to parse or gather real-time intelligence, returning cached or fallback data. Reason:", error?.message || error);
+  } catch (error) {
+    console.error("Global Risk Signals Error:", error);
     // Graceful fallback to cache if available even if stale
     if (cached) {
       console.warn("Serving stale global risk signals from cache due to API error.");
@@ -372,11 +322,11 @@ export const generateImpactAnalysis = async (supplier: Supplier, isSimulated: bo
       },
     } as any));
 
-    const data = parseGeminiResponse(result.text || "{}");
+    const data = JSON.parse(result.text || "{}");
     impactCache.set(cacheKey, { data, timestamp: Date.now() });
     return data;
-  } catch (error: any) {
-    console.warn("Impact Analysis: Parse or retrieval encountered an error, applying fallback:", error?.message || error);
+  } catch (error) {
+    console.error("Impact Analysis Error:", error);
     if (cached) {
       console.warn("Serving stale impact analysis from cache due to API error.");
       return cached.data;

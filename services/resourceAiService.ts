@@ -1,10 +1,9 @@
 import { GoogleGenAI, Type } from "@google/genai";
-import { parseGeminiResponse } from "./geminiService";
 
 const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY || '' });
 
 const withRetry = async <T>(fn: (modelName: string) => Promise<T>, retries = 7, delay = 3000): Promise<T> => {
-  const models = ["gemini-3.5-flash", "gemini-flash-latest", "gemini-3.1-flash-lite-preview", "gemini-3.1-pro-preview"];
+  const models = ["gemini-3-flash-preview", "gemini-3.1-pro-preview", "gemini-flash-latest", "gemini-3.1-flash-lite-preview"];
   let modelIndex = 0;
   const failedModels = new Set<string>();
 
@@ -97,7 +96,7 @@ export const generateResourceBriefing = async (title: string, location: string, 
       }
     }));
 
-    return parseGeminiResponse(response.text || '{}');
+    return JSON.parse(response.text || '{}');
   } catch (error) {
     console.error("Error generating briefing:", error);
     return {
@@ -153,7 +152,7 @@ export const generateResourceDocument = async (title: string, location: string, 
       }
     }));
 
-    return parseGeminiResponse(response.text || '{}');
+    return JSON.parse(response.text || '{}');
   } catch (error) {
     console.error("Error generating document:", error);
     return {

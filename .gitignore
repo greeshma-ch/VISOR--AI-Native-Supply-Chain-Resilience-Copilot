@@ -21,5 +21,6 @@ dist-ssr
 *.ntvs*
 *.njsproj
 *.sln
+*.sw?
 
 migrated_prompt_history/
